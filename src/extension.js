@@ -14,6 +14,7 @@ class Extension {
   constructor(context) {
     this.context = context;
     this.isSfdxProject = false;
+    this.statusBarItem = null;
   }
 
   /**
@@ -33,15 +34,87 @@ class Extension {
     // Register all commands
     this.registerCommands();
 
+    // Create status bar item
+    this.createStatusBar();
+
     // Run environment check on startup if configured
     const config = vscode.workspace.getConfiguration("sfPreflight");
     if (config.get("runHealthCheckOnStartup")) {
       await environmentService.runStartupCheck(this.context);
     }
 
+    // Update status bar with current environment status
+    await this.updateStatusBar();
+
     // Watch for sfdx-project.json changes
     this.watchSfdxProject();
     this.watchWorkspaceChanges();
+    this.watchConfigChanges();
+  }
+
+  /**
+   * Create status bar item
+   */
+  createStatusBar() {
+    const config = vscode.workspace.getConfiguration("sfPreflight");
+    if (!config.get("showStatusBar")) {
+      return;
+    }
+
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+      100
+    );
+    this.statusBarItem.command = `${EXTENSION_ID}.checkEnvironment`;
+    this.statusBarItem.text = "$(sync~spin) SF Preflight";
+    this.statusBarItem.tooltip = "Checking environment...";
+    this.statusBarItem.show();
+    this.context.subscriptions.push(this.statusBarItem);
+  }
+
+  /**
+   * Update status bar with environment status
+   */
+  async updateStatusBar() {
+    if (!this.statusBarItem) {
+      return;
+    }
+
+    try {
+      const results = await environmentService.runHealthCheck(true);
+
+      const hasIssues =
+        !results.node.installed ||
+        !results.salesforceCLI.installed ||
+        (results.packages && !results.packages.allInstalled) ||
+        (results.sfPlugins && !results.sfPlugins.allInstalled);
+
+      const hasWarnings =
+        !results.node.valid ||
+        !results.java.installed ||
+        !results.java.valid;
+
+      if (hasIssues) {
+        this.statusBarItem.text = "$(error) SF Preflight";
+        this.statusBarItem.tooltip = "Environment issues detected - Click to fix";
+        this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+          "statusBarItem.errorBackground"
+        );
+      } else if (hasWarnings) {
+        this.statusBarItem.text = "$(warning) SF Preflight";
+        this.statusBarItem.tooltip = "Environment warnings - Click to view";
+        this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+          "statusBarItem.warningBackground"
+        );
+      } else {
+        this.statusBarItem.text = "$(check) SF Preflight";
+        this.statusBarItem.tooltip = "Environment OK - Click to run health check";
+        this.statusBarItem.backgroundColor = undefined;
+      }
+    } catch (error) {
+      this.statusBarItem.text = "$(error) SF Preflight";
+      this.statusBarItem.tooltip = `Error checking environment: ${error.message}`;
+    }
   }
 
   /**
@@ -78,6 +151,28 @@ class Extension {
   }
 
   /**
+   * Watch for configuration changes
+   */
+  watchConfigChanges() {
+    vscode.workspace.onDidChangeConfiguration(async (e) => {
+      if (e.affectsConfiguration("sfPreflight.showStatusBar")) {
+        const config = vscode.workspace.getConfiguration("sfPreflight");
+        if (config.get("showStatusBar")) {
+          if (!this.statusBarItem) {
+            this.createStatusBar();
+            await this.updateStatusBar();
+          }
+        } else {
+          if (this.statusBarItem) {
+            this.statusBarItem.dispose();
+            this.statusBarItem = null;
+          }
+        }
+      }
+    });
+  }
+
+  /**
    * Handle SFDX project status change
    * @param {boolean} isSfdxProject
    */
@@ -94,6 +189,9 @@ class Extension {
         `${EXTENSION_NAME}: Salesforce DX project detected!`
       );
     }
+
+    // Update status bar when project status changes
+    await this.updateStatusBar();
   }
 
   /**
