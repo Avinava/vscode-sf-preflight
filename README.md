@@ -23,10 +23,10 @@ All commands are available via the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+
 
 ## Settings
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `sfPreflight.runHealthCheckOnStartup` | `true` | Run environment health check when VS Code starts |
-| `sfPreflight.showStatusBar` | `true` | Show environment status in the status bar |
+| Setting                               | Default | Description                                      |
+| ------------------------------------- | ------- | ------------------------------------------------ |
+| `sfPreflight.runHealthCheckOnStartup` | `true`  | Run environment health check when VS Code starts |
+| `sfPreflight.showStatusBar`           | `true`  | Show environment status in the status bar        |
 
 ## Requirements
 

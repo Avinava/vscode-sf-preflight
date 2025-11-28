@@ -1,7 +1,7 @@
-import * as vscode from 'vscode';
-import { EXTENSION_NAME, EXTENSION_ID } from './lib/constants.js';
-import * as environmentService from './services/environment.js';
-import * as environmentCommands from './features/environment-commands.js';
+import * as vscode from "vscode";
+import { EXTENSION_NAME, EXTENSION_ID } from "./lib/constants.js";
+import * as environmentService from "./services/environment.js";
+import * as environmentCommands from "./features/environment-commands.js";
 
 /**
  * SF Preflight Extension
@@ -24,14 +24,18 @@ class Extension {
 
     // Check if we're in an SFDX project and set context
     this.isSfdxProject = await environmentService.isSalesforceDXProject();
-    await vscode.commands.executeCommand('setContext', 'sfdx:project_opened', this.isSfdxProject);
+    await vscode.commands.executeCommand(
+      "setContext",
+      "sfdx:project_opened",
+      this.isSfdxProject
+    );
 
     // Register all commands
     this.registerCommands();
 
     // Run environment check on startup if configured
-    const config = vscode.workspace.getConfiguration('sfPreflight');
-    if (config.get('runHealthCheckOnStartup')) {
+    const config = vscode.workspace.getConfiguration("sfPreflight");
+    if (config.get("runHealthCheckOnStartup")) {
       await environmentService.runStartupCheck(this.context);
     }
 
@@ -44,7 +48,9 @@ class Extension {
    * Watch for changes to sfdx-project.json
    */
   watchSfdxProject() {
-    const watcher = vscode.workspace.createFileSystemWatcher('**/sfdx-project.json');
+    const watcher = vscode.workspace.createFileSystemWatcher(
+      "**/sfdx-project.json"
+    );
 
     watcher.onDidCreate(async () => {
       console.log(`${EXTENSION_NAME}: sfdx-project.json created`);
@@ -77,7 +83,11 @@ class Extension {
    */
   async handleSfdxProjectChange(isSfdxProject) {
     this.isSfdxProject = isSfdxProject;
-    await vscode.commands.executeCommand('setContext', 'sfdx:project_opened', this.isSfdxProject);
+    await vscode.commands.executeCommand(
+      "setContext",
+      "sfdx:project_opened",
+      this.isSfdxProject
+    );
 
     if (this.isSfdxProject) {
       vscode.window.showInformationMessage(
@@ -114,7 +124,9 @@ class Extension {
     ];
 
     commands.forEach(({ command, callback }) => {
-      this.context.subscriptions.push(vscode.commands.registerCommand(command, callback));
+      this.context.subscriptions.push(
+        vscode.commands.registerCommand(command, callback)
+      );
     });
   }
 
