@@ -28,8 +28,17 @@ export const REQUIRED_SF_PLUGINS = [
  */
 export const STATE_KEYS = {
   ENV_CHECK_COMPLETED: `${EXTENSION_ID}.env-check-completed`,
+  ENV_CHECK_PASSED: `${EXTENSION_ID}.env-check-passed`,
+  ENV_CHECK_TIMESTAMP: `${EXTENSION_ID}.env-check-timestamp`,
   PACKAGES_CHECKED: `${EXTENSION_ID}.packages-checked`,
   SF_PLUGINS_CHECKED: `${EXTENSION_ID}.sf-plugins-checked`,
+};
+
+/**
+ * Time intervals (in milliseconds)
+ */
+export const TIME_INTERVALS = {
+  RECHECK_AFTER_SUCCESS: 24 * 60 * 60 * 1000, // 24 hours
 };
 
 /**

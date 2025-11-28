@@ -6,6 +6,7 @@ import {
   MIN_VERSIONS,
   EXTERNAL_URLS,
   STATE_KEYS,
+  TIME_INTERVALS,
 } from "../lib/constants.js";
 import * as shell from "../lib/shell.js";
 import * as ui from "../lib/ui.js";
@@ -595,19 +596,45 @@ async function fixEnvironmentIssues(results) {
  * @param {vscode.ExtensionContext} context
  */
 export async function runStartupCheck(context) {
-  const hasRunCheck = context.globalState.get(STATE_KEYS.ENV_CHECK_COMPLETED);
+  const lastCheckPassed = context.globalState.get(STATE_KEYS.ENV_CHECK_PASSED);
+  const lastCheckTimestamp = context.globalState.get(
+    STATE_KEYS.ENV_CHECK_TIMESTAMP
+  );
+  const now = Date.now();
 
-  if (hasRunCheck) {
-    // Quick silent check for critical issues only
-    const results = await runHealthCheck(true);
+  // If preflight passed before, only recheck after the configured interval
+  if (lastCheckPassed && lastCheckTimestamp) {
+    const timeSinceLastCheck = now - lastCheckTimestamp;
+    if (timeSinceLastCheck < TIME_INTERVALS.RECHECK_AFTER_SUCCESS) {
+      // Skip check, preflight passed recently
+      return;
+    }
+  }
 
-    const hasCriticalIssues =
-      !results.salesforceCLI.installed ||
-      !results.node.installed ||
-      (results.packages && !results.packages.allInstalled) ||
-      (results.sfPlugins && !results.sfPlugins.allInstalled);
+  // Run silent check
+  const results = await runHealthCheck(true);
 
-    if (hasCriticalIssues) {
+  const hasCriticalIssues =
+    !results.salesforceCLI.installed ||
+    !results.node.installed ||
+    (results.packages && !results.packages.allInstalled) ||
+    (results.sfPlugins && !results.sfPlugins.allInstalled);
+
+  const hasWarnings =
+    !results.node.valid || !results.java.installed || !results.java.valid;
+
+  if (hasCriticalIssues || hasWarnings) {
+    // Reset passed state since there are issues
+    context.globalState.update(STATE_KEYS.ENV_CHECK_PASSED, false);
+
+    const hasRunBefore = context.globalState.get(STATE_KEYS.ENV_CHECK_COMPLETED);
+
+    if (!hasRunBefore) {
+      // First time - run full visible check
+      await runHealthCheck(false);
+      context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
+    } else if (hasCriticalIssues) {
+      // Has critical issues - prompt user
       const action = await vscode.window.showWarningMessage(
         `${EXTENSION_NAME}: Missing critical dependencies. Run environment check?`,
         "Check Now",
@@ -618,9 +645,11 @@ export async function runStartupCheck(context) {
         await runHealthCheck(false);
       }
     }
+    // For warnings only on subsequent runs, just update status bar silently
   } else {
-    // First time - run full check
-    await runHealthCheck(false);
+    // All good - mark as passed with timestamp
+    context.globalState.update(STATE_KEYS.ENV_CHECK_PASSED, true);
+    context.globalState.update(STATE_KEYS.ENV_CHECK_TIMESTAMP, now);
     context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
   }
 }

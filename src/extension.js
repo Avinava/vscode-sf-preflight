@@ -90,26 +90,31 @@ class Extension {
         (results.sfPlugins && !results.sfPlugins.allInstalled);
 
       const hasWarnings =
-        !results.node.valid ||
-        !results.java.installed ||
-        !results.java.valid;
+        !results.node.valid || !results.java.installed || !results.java.valid;
 
       if (hasIssues) {
         this.statusBarItem.text = "$(error) SF Preflight";
-        this.statusBarItem.tooltip = "Environment issues detected - Click to fix";
+        this.statusBarItem.tooltip =
+          "Environment issues detected - Click to fix";
         this.statusBarItem.backgroundColor = new vscode.ThemeColor(
           "statusBarItem.errorBackground"
         );
+        this.statusBarItem.color = undefined;
       } else if (hasWarnings) {
         this.statusBarItem.text = "$(warning) SF Preflight";
         this.statusBarItem.tooltip = "Environment warnings - Click to view";
         this.statusBarItem.backgroundColor = new vscode.ThemeColor(
           "statusBarItem.warningBackground"
         );
+        this.statusBarItem.color = undefined;
       } else {
-        this.statusBarItem.text = "$(check) SF Preflight";
-        this.statusBarItem.tooltip = "Environment OK - Click to run health check";
+        this.statusBarItem.text = "$(pass-filled) SF Preflight";
+        this.statusBarItem.tooltip =
+          "Environment OK - Click to run health check";
         this.statusBarItem.backgroundColor = undefined;
+        this.statusBarItem.color = new vscode.ThemeColor(
+          "testing.iconPassed"
+        );
       }
     } catch (error) {
       this.statusBarItem.text = "$(error) SF Preflight";
