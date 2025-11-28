@@ -1,0 +1,103 @@
+{
+  "name": "sf-preflight",
+  "displayName": "SF Preflight",
+  "description": "Environment health checks and setup verification for Salesforce development",
+  "version": "1.0.0",
+  "publisher": "avidev9",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint src/**/*.js",
+    "clean": "rm -rf release/*.vsix",
+    "prebuild": "yarn clean",
+    "build": "npx @vscode/vsce package --out release/",
+    "package": "yarn build",
+    "release": "yarn build && echo 'Package ready in release/ folder'"
+  },
+  "engines": {
+    "vscode": "^1.61.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "salesforce",
+    "environment",
+    "preflight",
+    "health check",
+    "setup"
+  ],
+  "activationEvents": [
+    "workspaceContains:sfdx-project.json",
+    "onStartupFinished"
+  ],
+  "main": "./src/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Avinava/vscode-sf-preflight.git"
+  },
+  "icon": "assets/icon.png",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.13.0",
+    "vscode": "^1.1.37"
+  },
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "SF Preflight",
+      "properties": {
+        "sfPreflight.runHealthCheckOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run environment health check when VS Code starts"
+        },
+        "sfPreflight.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show environment status in the status bar"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "sf-preflight.checkEnvironment",
+        "title": "SF Preflight: Check Environment Health",
+        "shortTitle": "Check Environment",
+        "icon": "$(heart)"
+      },
+      {
+        "command": "sf-preflight.checkJava",
+        "title": "SF Preflight: Check Java Installation",
+        "shortTitle": "Check Java",
+        "icon": "$(symbol-method)"
+      },
+      {
+        "command": "sf-preflight.checkSalesforceCLI",
+        "title": "SF Preflight: Check Salesforce CLI",
+        "shortTitle": "Check SF CLI",
+        "icon": "$(cloud)"
+      },
+      {
+        "command": "sf-preflight.checkNodeJS",
+        "title": "SF Preflight: Check Node.js Installation",
+        "shortTitle": "Check Node.js",
+        "icon": "$(symbol-event)"
+      },
+      {
+        "command": "sf-preflight.showProjectInfo",
+        "title": "SF Preflight: Show Project Info",
+        "shortTitle": "Project Info",
+        "icon": "$(info)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "sf-preflight.showProjectInfo",
+          "when": "sfdx:project_opened"
+        }
+      ]
+    }
+  }
+}

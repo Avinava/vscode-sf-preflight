@@ -1,0 +1,6 @@
+node_modules
+.vscode
+.git
+tests
+*.md
+assets/icon-full.png
