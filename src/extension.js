@@ -37,14 +37,18 @@ class Extension {
     // Create status bar item
     this.createStatusBar();
 
-    // Run environment check on startup if configured
+    // Run environment check on startup and update status bar
     const config = vscode.workspace.getConfiguration("sfPreflight");
     if (config.get("runHealthCheckOnStartup")) {
-      await environmentService.runStartupCheck(this.context);
+      const results = await environmentService.runStartupCheck(this.context);
+      // Use the results from startup check to update status bar
+      if (results) {
+        this.updateStatusBarWithResults(results);
+      }
+    } else {
+      // Just update status bar silently
+      await this.updateStatusBar();
     }
-
-    // Update status bar with current environment status
-    await this.updateStatusBar();
 
     // Watch for sfdx-project.json changes
     this.watchSfdxProject();
@@ -74,51 +78,62 @@ class Extension {
 
   /**
    * Update status bar with environment status
+   * @param {Object} [results] - Optional pre-fetched results
    */
-  async updateStatusBar() {
+  async updateStatusBar(results = null) {
     if (!this.statusBarItem) {
       return;
     }
 
     try {
-      const results = await environmentService.runHealthCheck(true);
-
-      const hasIssues =
-        !results.node.installed ||
-        !results.salesforceCLI.installed ||
-        (results.packages && !results.packages.allInstalled) ||
-        (results.sfPlugins && !results.sfPlugins.allInstalled);
-
-      const hasWarnings =
-        !results.node.valid || !results.java.installed || !results.java.valid;
-
-      if (hasIssues) {
-        this.statusBarItem.text = "$(error) SF Preflight";
-        this.statusBarItem.tooltip =
-          "Environment issues detected - Click to fix";
-        this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-          "statusBarItem.errorBackground"
-        );
-        this.statusBarItem.color = undefined;
-      } else if (hasWarnings) {
-        this.statusBarItem.text = "$(warning) SF Preflight";
-        this.statusBarItem.tooltip = "Environment warnings - Click to view";
-        this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-          "statusBarItem.warningBackground"
-        );
-        this.statusBarItem.color = undefined;
-      } else {
-        this.statusBarItem.text = "$(pass-filled) SF Preflight";
-        this.statusBarItem.tooltip =
-          "Environment OK - Click to run health check";
-        this.statusBarItem.backgroundColor = undefined;
-        this.statusBarItem.color = new vscode.ThemeColor(
-          "testing.iconPassed"
-        );
-      }
+      const checkResults =
+        results || (await environmentService.runHealthCheck(true));
+      this.updateStatusBarWithResults(checkResults);
     } catch (error) {
       this.statusBarItem.text = "$(error) SF Preflight";
       this.statusBarItem.tooltip = `Error checking environment: ${error.message}`;
+    }
+  }
+
+  /**
+   * Update status bar UI with given results (no fetch)
+   * @param {Object} results
+   */
+  updateStatusBarWithResults(results) {
+    if (!this.statusBarItem) {
+      return;
+    }
+
+    const hasIssues =
+      !results.node.installed ||
+      !results.salesforceCLI.installed ||
+      (results.packages && !results.packages.allInstalled) ||
+      (results.sfPlugins && !results.sfPlugins.allInstalled);
+
+    const hasWarnings =
+      !results.node.valid || !results.java.installed || !results.java.valid;
+
+    if (hasIssues) {
+      this.statusBarItem.text = "$(error) SF Preflight";
+      this.statusBarItem.tooltip =
+        "Environment issues detected - Click to fix";
+      this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+        "statusBarItem.errorBackground"
+      );
+      this.statusBarItem.color = undefined;
+    } else if (hasWarnings) {
+      this.statusBarItem.text = "$(warning) SF Preflight";
+      this.statusBarItem.tooltip = "Environment warnings - Click to view";
+      this.statusBarItem.backgroundColor = new vscode.ThemeColor(
+        "statusBarItem.warningBackground"
+      );
+      this.statusBarItem.color = undefined;
+    } else {
+      this.statusBarItem.text = "$(pass-filled) SF Preflight";
+      this.statusBarItem.tooltip =
+        "Environment OK - Click to run health check";
+      this.statusBarItem.backgroundColor = undefined;
+      this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
     }
   }
 

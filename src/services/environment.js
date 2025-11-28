@@ -594,6 +594,7 @@ async function fixEnvironmentIssues(results) {
 /**
  * Run environment check on startup (non-intrusive)
  * @param {vscode.ExtensionContext} context
+ * @returns {Promise<Object|null>} Health check results or null if skipped
  */
 export async function runStartupCheck(context) {
   const lastCheckPassed = context.globalState.get(STATE_KEYS.ENV_CHECK_PASSED);
@@ -606,8 +607,8 @@ export async function runStartupCheck(context) {
   if (lastCheckPassed && lastCheckTimestamp) {
     const timeSinceLastCheck = now - lastCheckTimestamp;
     if (timeSinceLastCheck < TIME_INTERVALS.RECHECK_AFTER_SUCCESS) {
-      // Skip check, preflight passed recently
-      return;
+      // Skip full check, but still return quick results for status bar
+      return await runHealthCheck(true);
     }
   }
 
@@ -627,7 +628,9 @@ export async function runStartupCheck(context) {
     // Reset passed state since there are issues
     context.globalState.update(STATE_KEYS.ENV_CHECK_PASSED, false);
 
-    const hasRunBefore = context.globalState.get(STATE_KEYS.ENV_CHECK_COMPLETED);
+    const hasRunBefore = context.globalState.get(
+      STATE_KEYS.ENV_CHECK_COMPLETED
+    );
 
     if (!hasRunBefore) {
       // First time - run full visible check
@@ -652,4 +655,6 @@ export async function runStartupCheck(context) {
     context.globalState.update(STATE_KEYS.ENV_CHECK_TIMESTAMP, now);
     context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
   }
+
+  return results;
 }
