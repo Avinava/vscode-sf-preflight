@@ -18,7 +18,10 @@ export const REQUIRED_PACKAGES = [
 /**
  * Required SF CLI plugins
  */
-export const REQUIRED_SF_PLUGINS = ["@salesforce/sfdx-scanner", "code-analyzer"];
+export const REQUIRED_SF_PLUGINS = [
+  "@salesforce/sfdx-scanner",
+  "code-analyzer",
+];
 
 /**
  * Global state keys used by the extension

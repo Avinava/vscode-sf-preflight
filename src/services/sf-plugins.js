@@ -119,12 +119,28 @@ export async function promptPluginInstall(pluginStatus) {
   );
 
   if (install === "Install Now") {
-    const terminal = vscode.window.createTerminal("SF Plugin Installation");
-    terminal.show();
-    for (const plugin of pluginStatus.missing) {
-      terminal.sendText(`sf plugins install ${plugin}`);
+    try {
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Installing SF CLI plugins...",
+          cancellable: false,
+        },
+        async (progress) => {
+          for (const plugin of pluginStatus.missing) {
+            progress.report({ message: `Installing ${plugin}...` });
+            await shell.execCommand(`sf plugins install ${plugin}`);
+          }
+        }
+      );
+      ui.showInfo(
+        `Successfully installed SF plugins: ${pluginStatus.missing.join(", ")}`
+      );
+      return true;
+    } catch (error) {
+      ui.showError(`Failed to install SF plugins: ${error.message}`);
+      return false;
     }
-    return true;
   }
 
   return false;

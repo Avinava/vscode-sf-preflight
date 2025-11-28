@@ -144,10 +144,27 @@ export async function promptPackageInstall(packageStatus) {
   );
 
   if (install === "Install Now") {
-    const terminal = vscode.window.createTerminal("Package Installation");
-    terminal.show();
-    terminal.sendText(`npm install -g ${packageStatus.missing.join(" ")}`);
-    return true;
+    try {
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Installing npm packages: ${packageStatus.missing.join(", ")}`,
+          cancellable: false,
+        },
+        async () => {
+          await shell.execCommand(
+            `npm install -g ${packageStatus.missing.join(" ")}`
+          );
+        }
+      );
+      ui.showInfo(
+        `Successfully installed: ${packageStatus.missing.join(", ")}`
+      );
+      return true;
+    } catch (error) {
+      ui.showError(`Failed to install packages: ${error.message}`);
+      return false;
+    }
   }
 
   return false;

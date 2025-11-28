@@ -541,8 +541,14 @@ async function displayHealthCheckResults(results) {
 
   const message = [...issues, ...warnings, ...info].join("\n");
 
-  if (issues.length > 0) {
-    const action = await vscode.window.showErrorMessage(
+  if (issues.length > 0 || warnings.length > 0) {
+    const messageType = issues.length > 0 ? "error" : "warning";
+    const showMessage =
+      messageType === "error"
+        ? vscode.window.showErrorMessage
+        : vscode.window.showWarningMessage;
+
+    const action = await showMessage(
       `Environment Check:\n${message}`,
       "Fix Issues",
       "Dismiss"
@@ -550,9 +556,9 @@ async function displayHealthCheckResults(results) {
 
     if (action === "Fix Issues") {
       await fixEnvironmentIssues(results);
+      // Re-run health check to confirm fixes
+      await runHealthCheck(false);
     }
-  } else if (warnings.length > 0) {
-    vscode.window.showWarningMessage(`Environment Check:\n${message}`, "OK");
   } else {
     ui.showInfo(`Environment Check:\n${message}`);
   }
