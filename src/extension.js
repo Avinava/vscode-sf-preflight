@@ -115,8 +115,7 @@ class Extension {
 
     if (hasIssues) {
       this.statusBarItem.text = "$(error) SF Preflight";
-      this.statusBarItem.tooltip =
-        "Environment issues detected - Click to fix";
+      this.statusBarItem.tooltip = "Environment issues detected - Click to fix";
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.errorBackground"
       );
@@ -130,8 +129,7 @@ class Extension {
       this.statusBarItem.color = undefined;
     } else {
       this.statusBarItem.text = "$(pass-filled) SF Preflight";
-      this.statusBarItem.tooltip =
-        "Environment OK - Click to run health check";
+      this.statusBarItem.tooltip = "Environment OK - Click to run health check";
       this.statusBarItem.backgroundColor = undefined;
       this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
     }
