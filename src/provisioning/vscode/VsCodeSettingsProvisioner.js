@@ -34,8 +34,13 @@ export class VsCodeSettingsProvisioner extends Provisioner {
         // Future: Merge functionality
       } catch {
         // Create if missing
+        const template = this.getConfig(
+          "provisioning.templates.vscodeSettings",
+          STANDARD_VSCODE_SETTINGS
+        );
+
         const writeData = Buffer.from(
-          JSON.stringify(STANDARD_VSCODE_SETTINGS, null, 2),
+          JSON.stringify(template, null, 2),
           "utf8"
         );
         await vscode.workspace.fs.writeFile(settingsUri, writeData);

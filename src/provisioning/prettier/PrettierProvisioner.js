@@ -25,8 +25,14 @@ export class PrettierProvisioner extends Provisioner {
       await vscode.workspace.fs.stat(rcUri);
     } catch {
       // Create if missing
+      // Get template from config or fall back to standard
+      const template = this.getConfig(
+        "provisioning.templates.prettierrc",
+        STANDARD_PRETTIER_RC
+      );
+      
       const writeData = Buffer.from(
-        JSON.stringify(STANDARD_PRETTIER_RC, null, 2),
+        JSON.stringify(template, null, 2),
         "utf8"
       );
       await vscode.workspace.fs.writeFile(rcUri, writeData);
@@ -41,10 +47,12 @@ export class PrettierProvisioner extends Provisioner {
       await vscode.workspace.fs.stat(ignoreUri);
     } catch {
       // Create if missing
-      const writeData = Buffer.from(
-        STANDARD_PRETTIER_IGNORE.trim(),
-        "utf8"
+      const template = this.getConfig(
+        "provisioning.templates.prettierignore",
+        STANDARD_PRETTIER_IGNORE
       );
+
+      const writeData = Buffer.from(template.trim(), "utf8");
       await vscode.workspace.fs.writeFile(ignoreUri, writeData);
       vscode.window.showInformationMessage(
         "SF Preflight: Created .prettierignore."

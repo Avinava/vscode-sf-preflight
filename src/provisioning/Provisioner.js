@@ -43,6 +43,20 @@ export class Provisioner {
   }
 
   /**
+   * Get configuration value with optional default
+   * @param {string} key - Relative config key (e.g. "templates.prettierrc")
+   * @param {*} defaultValue
+   * @returns {*}
+   */
+  getConfig(key, defaultValue) {
+    const config = vscode.workspace.getConfiguration("sfPreflight");
+    const val = config.get(key);
+    // VS Code returns the default value if not set, but we might want to check for null/undefined explicitly if we needed strict checking.
+    // However, config.get() usually handles this well.
+    return val !== undefined ? val : defaultValue;
+  }
+
+  /**
    * Execute the provisioning logic
    * @returns {Promise<void>}
    */

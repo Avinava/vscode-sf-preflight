@@ -2,7 +2,7 @@
   "name": "sf-preflight",
   "displayName": "SF Preflight",
   "description": "Environment health checks and setup verification for Salesforce development",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "avidev9",
   "type": "module",
   "scripts": {
@@ -89,6 +89,65 @@
           "type": "boolean",
           "default": true,
           "description": "Enable automatic creation of .vscode/settings.json with standard exclusions if missing"
+        },
+        "sfPreflight.provisioning.templates.prettierrc": {
+          "type": "object",
+          "default": {
+            "trailingComma": "none",
+            "singleQuote": true,
+            "printWidth": 120,
+            "tabWidth": 2,
+            "useTabs": false,
+            "overrides": [
+              {
+                "files": "**/lwc/**/*.html",
+                "options": {
+                  "parser": "lwc"
+                }
+              },
+              {
+                "files": "*.{cmp,page,component}",
+                "options": {
+                  "parser": "html"
+                }
+              }
+            ],
+            "plugins": [
+              "prettier-plugin-apex"
+            ]
+          },
+          "description": "Template for .prettierrc"
+        },
+        "sfPreflight.provisioning.templates.prettierignore": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "# .prettierignore\n.sf/\n.sfdx/\n.localdevserver/\ndist/\nnode_modules/\ncoverage/\n.DS_Store\npackage-lock.json\n",
+          "description": "Template for .prettierignore"
+        },
+        "sfPreflight.provisioning.templates.editorConfig": {
+          "type": "string",
+          "editPresentation": "multilineText",
+          "default": "# EditorConfig is awesome: https://EditorConfig.org\n\n# top-most EditorConfig file\nroot = true\n\n[*]\nend_of_line = lf\ncharset = utf-8\ntrim_trailing_whitespace = true\ninsert_final_newline = true\nindent_style = space\nindent_size = 2\n\n[*.{cmp,page,component}]\nindent_style = space\nindent_size = 2\n\n[*.{html,js,json,md,ts,yaml,yml}]\nindent_style = space\nindent_size = 2",
+          "description": "Template for .editorconfig"
+        },
+        "sfPreflight.provisioning.templates.vscodeSettings": {
+          "type": "object",
+          "default": {
+            "search.exclude": {
+              "**/node_modules": true,
+              "**/dist": true,
+              "**/coverage": true,
+              "**/.sf": true,
+              "**/.sfdx": true
+            },
+            "files.exclude": {
+              "**/.sf": true,
+              "**/.sfdx": true
+            },
+            "salesforcedx-vscode-core.push-or-deploy-on-save.enabled": false,
+            "editor.formatOnSave": true
+          },
+          "description": "Template for .vscode/settings.json"
         }
       }
     },

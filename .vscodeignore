@@ -1,6 +1,20 @@
-node_modules
+# Editor/System
 .vscode
+.DS_Store
 .git
+.gitignore
+.gemini
+
+# Development
+node_modules
 tests
+references
+release
+eslint.config.js
+yarn.lock
+package-lock.json
+
+# Documentation
 *.md
+!readme.md
 assets/icon-full.png
