@@ -38,6 +38,16 @@ You can override the standard templates used for provisioning by editing these s
 - `sfPreflight.provisioning.templates.editorConfig` (String)
 - `sfPreflight.provisioning.templates.vscodeSettings` (Object)
 
+## Re-provisioning
+
+If you need to update your configuration files to the latest standards (or if you messed them up and want to reset), you can force a re-provision:
+
+1.  Open Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)
+2.  Run `SF Preflight: Force Re-provision Configuration`
+3.  Confirm the warning dialog.
+
+**Note:** This will overwrite your existing config files (`.prettierrc`, `.editorconfig`, etc.) with the extension's default templates.
+
 ## Status Bar
 
 The extension shows your environment status in the status bar:
@@ -47,7 +57,12 @@ The extension shows your environment status in the status bar:
 - **⚠ Yellow** - Warnings (e.g., non-critical missing plugins)
 - **✗ Red** - Issues detected that need attention
 
-Click the status bar item to run a full manual health check.
+- **✗ Red** - Issues detected that need attention
+
+Clicking the status bar item opens a **Quick Menu** with options to:
+- Run System Health Check
+- Force Re-provision Configuration
+- Show Project Info
 
 ## Commands
 
@@ -60,6 +75,7 @@ All commands are available via the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+
 | `SF Preflight: Check Salesforce CLI`       | Check and update Salesforce CLI   |
 | `SF Preflight: Check Node.js Installation` | Check Node.js version             |
 | `SF Preflight: Show Project Info`          | Display SFDX project details      |
+| `SF Preflight: Force Re-provision Configuration` | **Reset/Update** config files (Overwrite) |
 
 ## Settings
 
