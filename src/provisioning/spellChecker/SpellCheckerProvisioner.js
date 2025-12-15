@@ -52,6 +52,7 @@ export class SpellCheckerProvisioner extends Provisioner {
       ],
       ignoreRegExpList: [
         "/\\b[a-zA-Z0-9]{15}\\b|\\b[a-zA-Z0-9]{18}\\b/", // Ignore Salesforce IDs
+        "/@author\\s+.*$/gm", // Ignore @author tags in ApexDocs
       ],
     };
 

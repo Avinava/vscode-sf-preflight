@@ -262,7 +262,21 @@ Clone
 DeepClone
 
 # --- Deployment & SFDX ---
-SFDX
+dlrs
+fflib
+npsp
+agf
+rh
+sf
+sfdx
+vlocity
+sbqq
+cpq
+sbaa
+fsl
+pardot
+omnistudio
+copado
 ScratchOrg
 DevHub
 Package
