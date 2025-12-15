@@ -181,6 +181,12 @@
         "title": "SF Preflight: Show Project Info",
         "shortTitle": "Project Info",
         "icon": "$(info)"
+      },
+      {
+        "command": "sf-preflight.provisionForce",
+        "title": "SF Preflight: Force Re-provision Configuration",
+        "shortTitle": "Force Re-provision",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {

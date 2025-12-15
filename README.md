@@ -7,24 +7,47 @@
 ## Features
 
 - **🔍 Environment Health Check** - Comprehensive check of your Salesforce development environment
+- **⚙️ Automatic Provisioning** - Automatically sets up standard configuration files (Prettier, EditorConfig, VS Code settings)
+- **📝 Spell Checker** - Configures Code Spell Checker with Salesforce-specific dictionary
+- **⚡ Smart Caching** - Caches successful health checks for 24 hours to speed up startup
 - **☕ Java Check** - Verify Java installation and version (11+ required for Apex Language Server)
 - **📦 Node.js Check** - Verify Node.js installation and version (18+ recommended)
 - **☁️ Salesforce CLI Check** - Verify SF CLI installation and provide update options
 - **🔌 SF CLI Plugins Check** - Verify required plugins like sfdx-scanner and code-analyzer
-- **✨ npm Packages Check** - Check for Prettier and Salesforce formatting plugins
-- **📋 Project Info** - Display Salesforce DX project information
 - **📊 Status Bar** - Quick visual indicator of environment health (green ✓, yellow ⚠, red ✗)
-- **🔧 Auto-Fix** - One-click installation of missing dependencies
+
+## Automatic Provisioning
+
+When you open a Salesforce DX project, SF Preflight optionally checks for and creates ensuring standard configuration files:
+
+- **.prettierrc** (Optimized for Apex/LWC)
+- **.prettierignore**
+- **.editorconfig** (Apex tab size: 2 spaces)
+- **.gitignore** (Standard Salesforce ignore rules)
+- **.vscode/settings.json** (Standard file exclusions)
+- **cspell.json** (Salesforce dictionary configuration)
+
+*This behavior can be disabled or customized in Settings.*
+
+## Configuration Templates
+
+You can override the standard templates used for provisioning by editing these settings in your `settings.json`:
+
+- `sfPreflight.provisioning.templates.prettierrc` (Object)
+- `sfPreflight.provisioning.templates.prettierignore` (String)
+- `sfPreflight.provisioning.templates.editorConfig` (String)
+- `sfPreflight.provisioning.templates.vscodeSettings` (Object)
 
 ## Status Bar
 
 The extension shows your environment status in the status bar:
 
 - **✓ Green** - All checks passed
-- **⚠ Yellow** - Warnings (e.g., Java not found but not critical)
+- **✓ Green (Cached)** - Environment confirmed healthy (check skipped for performance)
+- **⚠ Yellow** - Warnings (e.g., non-critical missing plugins)
 - **✗ Red** - Issues detected that need attention
 
-Click the status bar item to run a full health check.
+Click the status bar item to run a full manual health check.
 
 ## Commands
 
@@ -40,36 +63,14 @@ All commands are available via the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+
 
 ## Settings
 
-| Setting                               | Default | Description                                      |
-| ------------------------------------- | ------- | ------------------------------------------------ |
-| `sfPreflight.runHealthCheckOnStartup` | `true`  | Run environment health check when VS Code starts |
-| `sfPreflight.showStatusBar`           | `true`  | Show environment status in the status bar        |
-
-## What Gets Checked
-
-### Required npm Packages (Global)
-
-- `@salesforce/cli` - Salesforce CLI
-- `prettier` - Code formatter
-- `@prettier/plugin-xml` - XML formatting support
-- `prettier-plugin-apex` - Apex formatting support
-
-### Required SF CLI Plugins
-
-- `@salesforce/sfdx-scanner` - Code analyzer
-- `code-analyzer` - Additional code analysis
-
-### Runtime Requirements
-
-- **Node.js** v18 or higher
-- **Java** 11 or higher (for Apex Language Server)
-
-## Smart Startup Behavior
-
-- On first run, performs a full environment check
-- If all checks pass, skips the check for 24 hours
-- If issues are detected, prompts to fix them
-- Status bar always shows current environment health
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `sfPreflight.runHealthCheckOnStartup` | `true` | Run environment health check on startup |
+| `sfPreflight.provisioning.runOnStartup` | `true` | Enable automatic provisioning system |
+| `sfPreflight.provisioning.spellChecker` | `true` | Auto-configure Spell Checker |
+| `sfPreflight.provisioning.prettier` | `true` | Auto-create Prettier config |
+| `sfPreflight.provisioning.editorConfig` | `true` | Auto-create EditorConfig |
+| `sfPreflight.provisioning.vscodeSettings` | `true` | Auto-create VS Code workspace settings |
 
 ## Installation
 

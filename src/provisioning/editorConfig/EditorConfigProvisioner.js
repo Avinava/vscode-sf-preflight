@@ -11,16 +11,24 @@ export class EditorConfigProvisioner extends Provisioner {
     return "provisioning.editorConfig";
   }
 
-  async execute() {
+  async execute(force = false) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) return;
+    if (!workspaceFolders) return [];
     const rootUri = workspaceFolders[0].uri;
 
     const uri = vscode.Uri.joinPath(rootUri, ".editorconfig");
-    try {
-      await vscode.workspace.fs.stat(uri);
-    } catch {
-      // Create if missing
+
+    let create = force;
+    if (!create) {
+      try {
+        await vscode.workspace.fs.stat(uri);
+      } catch {
+        create = true;
+      }
+    }
+
+    if (create) {
+      // Create or Overwrite
       const template = this.getConfig(
         "provisioning.templates.editorConfig",
         STANDARD_EDITOR_CONFIG
@@ -28,9 +36,8 @@ export class EditorConfigProvisioner extends Provisioner {
 
       const writeData = Buffer.from(template.trim(), "utf8");
       await vscode.workspace.fs.writeFile(uri, writeData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created .editorconfig."
-      );
+      return [".editorconfig"];
     }
+    return [];
   }
 }

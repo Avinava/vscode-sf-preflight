@@ -21,6 +21,7 @@ PaaS
 AppExchange
 Trailhead
 Ohana
+sfdc
 
 # --- Apex Keywords & Interfaces ---
 Apex
@@ -58,6 +59,14 @@ Debug
 Upsert
 Undelete
 Merge
+testMethod
+InvocableMethod
+InvocableVariable
+RemoteAction
+ReadOnly
+Comparable
+InstallHandler
+UninstallHandler
 
 # --- Common Standard Objects ---
 Account
@@ -101,6 +110,36 @@ ApexClass
 ApexTrigger
 StaticResource
 WebLink
+FeedItem
+FeedComment
+EventRelation
+CollaborationGroup
+Topic
+TopicAssignment
+EntitySubscription
+SObject
+
+# --- ConnectApi (Chatter) ---
+ConnectApi
+ConnectApiHelper
+Chatter
+
+# --- Exceptions ---
+Exception
+DmlException
+QueryException
+NullPointerException
+CalloutException
+LimitException
+JSONException
+XmlException
+
+# --- Common Dev Terms ---
+updation
+mentions
+mock
+pojo
+wrapper
 
 # --- SOQL & SOSL Specific ---
 Select
@@ -166,6 +205,31 @@ QuerySelector
 QuerySelectorAll
 
 # --- Common System Classes & Methods ---
+UserInfo
+Limits
+Schema
+Date
+Datetime
+Time
+Math
+Http
+HttpRequest
+HttpResponse
+RestContext
+RestRequest
+RestResponse
+PageReference
+ApexPages
+EncodingUtil
+Crypto
+LoggingLevel
+FeatureManagement
+Label
+Auth
+Site
+Url
+Cookie
+Network
 JSON
 Serialize
 Deserialize

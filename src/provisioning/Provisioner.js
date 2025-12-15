@@ -58,9 +58,10 @@ export class Provisioner {
 
   /**
    * Execute the provisioning logic
-   * @returns {Promise<void>}
+   * @param {boolean} force - If true, overwrite existing files
+   * @returns {Promise<string[]>} - List of created/updated files
    */
-  async execute() {
+  async execute(_force = false) {
     throw new Error("Method 'execute()' must be implemented.");
   }
 }

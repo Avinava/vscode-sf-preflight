@@ -14,17 +14,23 @@ export class PrettierProvisioner extends Provisioner {
     return "provisioning.prettier";
   }
 
-  async execute() {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) return;
-    const rootUri = workspaceFolders[0].uri;
+  async execute(force = false) {
+    const rootUri = vscode.workspace.workspaceFolders[0].uri;
+    const createdFiles = [];
 
     // 1. .prettierrc
     const rcUri = vscode.Uri.joinPath(rootUri, ".prettierrc");
-    try {
-      await vscode.workspace.fs.stat(rcUri);
-    } catch {
-      // Create if missing
+    let createRc = force;
+    if (!createRc) {
+      try {
+        await vscode.workspace.fs.stat(rcUri);
+      } catch {
+        createRc = true;
+      }
+    }
+
+    if (createRc) {
+      // Create or Overwrite
       // Get template from config or fall back to standard
       const template = this.getConfig(
         "provisioning.templates.prettierrc",
@@ -36,17 +42,22 @@ export class PrettierProvisioner extends Provisioner {
         "utf8"
       );
       await vscode.workspace.fs.writeFile(rcUri, writeData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created .prettierrc."
-      );
+      createdFiles.push(".prettierrc");
     }
 
     // 2. .prettierignore
     const ignoreUri = vscode.Uri.joinPath(rootUri, ".prettierignore");
-    try {
-      await vscode.workspace.fs.stat(ignoreUri);
-    } catch {
-      // Create if missing
+    let createIgnore = force;
+    if (!createIgnore) {
+      try {
+        await vscode.workspace.fs.stat(ignoreUri);
+      } catch {
+        createIgnore = true;
+      }
+    }
+
+    if (createIgnore) {
+      // Create or Overwrite
       const template = this.getConfig(
         "provisioning.templates.prettierignore",
         STANDARD_PRETTIER_IGNORE
@@ -54,9 +65,9 @@ export class PrettierProvisioner extends Provisioner {
 
       const writeData = Buffer.from(template.trim(), "utf8");
       await vscode.workspace.fs.writeFile(ignoreUri, writeData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created .prettierignore."
-      );
+      createdFiles.push(".prettierignore");
     }
+    
+    return createdFiles;
   }
 }

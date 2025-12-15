@@ -14,27 +14,35 @@ export class GitIgnoreProvisioner extends Provisioner {
     return "provisioning.gitIgnore"; // Maps to sfPreflight.provisioning.gitIgnore
   }
 
-  async execute() {
+  async execute(force = false) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-      return;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      // If no workspace folders are open, or if the array is empty, we can't determine a root.
+      // This scenario should ideally be handled by the calling context or be impossible
+      // given how VS Code extensions typically operate within a workspace.
+      console.log("SF Preflight: No workspace folders found. Skipping .gitignore provisioning.");
+      return [];
     }
 
     const rootUri = workspaceFolders[0].uri;
     const gitIgnoreUri = vscode.Uri.joinPath(rootUri, ".gitignore");
 
-    try {
-      await vscode.workspace.fs.stat(gitIgnoreUri);
-      // File exists, we do not overwrite in V1
-      // Future enhancement: Parse and append missing entries
-      console.log("SF Preflight: .gitignore already exists. Skipping.");
-    } catch {
-      // File does not exist, create it
+    let create = force;
+    if (!create) {
+      try {
+        await vscode.workspace.fs.stat(gitIgnoreUri);
+        console.log("SF Preflight: .gitignore already exists. Skipping.");
+        return [];
+      } catch {
+        create = true;
+      }
+    }
+
+    if (create) {
       const writeData = Buffer.from(STANDARD_GITIGNORE_CONTENT.trim(), "utf8");
       await vscode.workspace.fs.writeFile(gitIgnoreUri, writeData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created standard .gitignore."
-      );
+      return [".gitignore"];
     }
+    return [];
   }
 }

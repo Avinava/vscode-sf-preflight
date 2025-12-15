@@ -14,13 +14,14 @@ export class SpellCheckerProvisioner extends Provisioner {
     return "provisioning.spellChecker"; // Maps to sfPreflight.provisioning.spellChecker
   }
 
-  async execute() {
+  async execute(force = false) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
-      return;
+      return [];
     }
 
     const rootUri = workspaceFolders[0].uri;
+    const createdFiles = [];
 
     // 1. Define paths
     const configUri = vscode.Uri.joinPath(rootUri, "cspell.json");
@@ -55,32 +56,44 @@ export class SpellCheckerProvisioner extends Provisioner {
     };
 
     // 2. Check and Create cspell.json
-    try {
-      await vscode.workspace.fs.stat(configUri);
-      // File exists, we respect user config for now and do not overwrite
-      // In a strict mode, we might merge or overwrite, but for now we skip.
-    } catch {
-      // File does not exist, create it
+    let createConfig = force;
+    if (!createConfig) {
+      try {
+        await vscode.workspace.fs.stat(configUri);
+        // File exists, we respect user config for now and do not overwrite unless forced.
+        createConfig = false;
+      } catch {
+        // File does not exist, so we should create it.
+        createConfig = true;
+      }
+    }
+
+    if (createConfig) {
+      // Create cspell.json (or overwrite if force is true)
       const writeData = Buffer.from(
         JSON.stringify(defaultConfig, null, 2),
         "utf8"
       );
       await vscode.workspace.fs.writeFile(configUri, writeData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created cspell.json for Salesforce."
-      );
+      createdFiles.push("cspell.json");
     }
 
     // 3. Check and Create Dictionary
-    try {
-      await vscode.workspace.fs.stat(dictionaryFileUri);
-    } catch {
-      // Ensure directory exists first
+    let createDict = force;
+    if (!createDict) {
       try {
-        await vscode.workspace.fs.createDirectory(dictionaryDirUri);
-      } catch (err) {
-        // Ignore if already exists
+        await vscode.workspace.fs.stat(dictionaryFileUri);
+        // File exists, we respect user config for now and do not overwrite unless forced.
+        createDict = false;
+      } catch {
+        // File does not exist, so we should create it.
+        createDict = true;
       }
+    }
+
+    if (createDict) {
+      // Ensure directory exists first
+      await vscode.workspace.fs.createDirectory(dictionaryDirUri);
 
       // Write the dictionary file
       const dictData = Buffer.from(SALESFORCE_TERMS, "utf8");

@@ -46,7 +46,9 @@ class Extension {
 
     // Setup and run provisioning
     this.setupProvisioning();
-    await this.provisioningManager.runOnStartup();
+    if (this.isSfdxProject) {
+      await this.provisioningManager.runOnStartup();
+    }
 
     // Run environment check on startup and update status bar
     const config = vscode.workspace.getConfiguration("sfPreflight");
@@ -164,11 +166,11 @@ class Extension {
       this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
       
       if (results.cached) {
-        this.statusBarItem.tooltip = "Environment Ready (Cached) - Click to run full check";
-        this.statusBarItem.text = "$(pass-filled) SF Preflight (Cached)";
+        this.statusBarItem.tooltip = "Environment Ready - Click to run full check";
+        this.statusBarItem.text = "$(pass-filled) SF Preflight";
       } else {
         this.statusBarItem.text = "$(pass-filled) SF Preflight";
-        this.statusBarItem.tooltip = "Environment OK - Click to run health check";
+        this.statusBarItem.tooltip = "Environment OK - Click to run full check";
       }
     }
   }
@@ -244,6 +246,8 @@ class Extension {
       vscode.window.showInformationMessage(
         `${EXTENSION_NAME}: Salesforce DX project detected!`
       );
+      // Run provisioning when project is detected/created
+      await this.provisioningManager.runOnStartup();
     }
 
     // Update status bar when project status changes
