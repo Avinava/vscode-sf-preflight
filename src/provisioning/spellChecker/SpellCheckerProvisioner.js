@@ -51,7 +51,7 @@ export class SpellCheckerProvisioner extends Provisioner {
         "**/*.map",
       ],
       ignoreRegExpList: [
-        "/\\b[a-zA-Z0-9]{15}|[a-zA-Z0-9]{18}\\b/", // Ignore Salesforce IDs
+        "/\\b[a-zA-Z0-9]{15}\\b|\\b[a-zA-Z0-9]{18}\\b/", // Ignore Salesforce IDs
       ],
     };
 
@@ -65,6 +65,26 @@ export class SpellCheckerProvisioner extends Provisioner {
       } catch {
         // File does not exist, so we should create it.
         createConfig = true;
+      }
+    }
+
+    // 2a. Migration: Check for legacy regex in existing config
+    // We want to auto-fix this even if we are not forcing a full re-provision
+    if (!createConfig && !force) {
+      try {
+        const fileContent = await vscode.workspace.fs.readFile(configUri);
+        const fileString = new TextDecoder("utf-8").decode(fileContent);
+        const badRegex = "/\\\\b[a-zA-Z0-9]{15}|[a-zA-Z0-9]{18}\\\\b/";
+        const goodRegex = "/\\\\b[a-zA-Z0-9]{15}\\\\b|\\\\b[a-zA-Z0-9]{18}\\\\b/";
+        
+        if (fileString.includes(badRegex)) {
+          console.log("SF Preflight: Migrating legacy regex in cspell.json");
+          const newContent = fileString.replace(badRegex, goodRegex);
+          await vscode.workspace.fs.writeFile(configUri, Buffer.from(newContent, "utf8"));
+          createdFiles.push("cspell.json (migrated)");
+        }
+      } catch (err) {
+        console.error("SF Preflight: Error migrating cspell.json:", err);
       }
     }
 

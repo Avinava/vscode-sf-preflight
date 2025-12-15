@@ -103,9 +103,9 @@ class Extension {
       vscode.StatusBarAlignment.Left,
       100
     );
-    this.statusBarItem.command = `${EXTENSION_ID}.checkEnvironment`;
+    this.statusBarItem.command = `${EXTENSION_ID}.openMenu`;
     this.statusBarItem.text = "$(sync~spin) SF Preflight";
-    this.statusBarItem.tooltip = "Checking environment...";
+    this.statusBarItem.tooltip = "Checking environment... (Click for menu)";
     this.statusBarItem.show();
     this.context.subscriptions.push(this.statusBarItem);
   }
@@ -149,14 +149,14 @@ class Extension {
 
     if (hasIssues) {
       this.statusBarItem.text = "$(error) SF Preflight";
-      this.statusBarItem.tooltip = "Environment issues detected - Click to fix";
+      this.statusBarItem.tooltip = "Environment issues detected - Click for actions";
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.errorBackground"
       );
       this.statusBarItem.color = undefined;
     } else if (hasWarnings) {
       this.statusBarItem.text = "$(warning) SF Preflight";
-      this.statusBarItem.tooltip = "Environment warnings - Click to view";
+      this.statusBarItem.tooltip = "Environment warnings - Click for actions";
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.warningBackground"
       );
@@ -166,11 +166,11 @@ class Extension {
       this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
       
       if (results.cached) {
-        this.statusBarItem.tooltip = "Environment Ready - Click to run full check";
+        this.statusBarItem.tooltip = "Environment Ready - Click for actions";
         this.statusBarItem.text = "$(pass-filled) SF Preflight";
       } else {
         this.statusBarItem.text = "$(pass-filled) SF Preflight";
-        this.statusBarItem.tooltip = "Environment OK - Click to run full check";
+        this.statusBarItem.tooltip = "Environment OK - Click for actions";
       }
     }
   }
@@ -276,8 +276,12 @@ class Extension {
         callback: () => environmentCommands.checkNodeJS(),
       },
       {
-        command: `${EXTENSION_ID}.showProjectInfo`,
-        callback: () => environmentCommands.showProjectInfo(),
+        "command": `${EXTENSION_ID}.showProjectInfo`,
+        "callback": () => environmentCommands.showProjectInfo(),
+      },
+      {
+        "command": `${EXTENSION_ID}.openMenu`,
+        "callback": () => this.openActionMenu(),
       },
     ];
 
@@ -286,6 +290,44 @@ class Extension {
         vscode.commands.registerCommand(command, callback)
       );
     });
+  }
+
+  /**
+   * Open the action menu from status bar
+   */
+  async openActionMenu() {
+    const items = [
+      {
+        label: "$(sync) Run System Health Check",
+        description: "Verify environment requirements",
+        command: `${EXTENSION_ID}.checkEnvironment`,
+      },
+      {
+        label: "$(refresh) Force Re-provision Configuration",
+        description: "Regenerate config files (warning: overwrites)",
+        command: "sf-preflight.provisionForce",
+      },
+      {
+        label: "$(info) Show Project Info",
+        description: "Display detected project details",
+        command: `${EXTENSION_ID}.showProjectInfo`,
+      },
+    ];
+
+    const selection = await vscode.window.showQuickPick(items, {
+      placeHolder: "Select an action for SF Preflight",
+    });
+
+    if (selection) {
+      if (selection.command === `${EXTENSION_ID}.checkEnvironment`) {
+        // Pass context if needed, though checkEnvironment expects it
+        await environmentCommands.checkEnvironment(this.context);
+      } else if (selection.command === "sf-preflight.provisionForce") {
+        await this.provisioningManager.runForce();
+      } else {
+        await vscode.commands.executeCommand(selection.command);
+      }
+    }
   }
 
   /**
