@@ -42,6 +42,9 @@
     "eslint": "^9.13.0",
     "vscode": "^1.1.37"
   },
+  "extensionDependencies": [
+    "streetsidesoftware.code-spell-checker"
+  ],
   "contributes": {
     "configuration": {
       "type": "object",
@@ -56,6 +59,36 @@
           "type": "boolean",
           "default": true,
           "description": "Show environment status in the status bar"
+        },
+        "sfPreflight.provisioning.runOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically run enabled provisioners (like Spell Checker) on project open"
+        },
+        "sfPreflight.provisioning.spellChecker": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic setup of Salesforce dictionary and spell checker settings"
+        },
+        "sfPreflight.provisioning.gitIgnore": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic creation of standard .gitignore if missing"
+        },
+        "sfPreflight.provisioning.prettier": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic creation of .prettierrc and .prettierignore if missing"
+        },
+        "sfPreflight.provisioning.editorConfig": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic creation of .editorconfig if missing"
+        },
+        "sfPreflight.provisioning.vscodeSettings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic creation of .vscode/settings.json with standard exclusions if missing"
         }
       }
     },

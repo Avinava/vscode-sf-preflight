@@ -6,7 +6,6 @@ import {
   MIN_VERSIONS,
   EXTERNAL_URLS,
   STATE_KEYS,
-  TIME_INTERVALS,
 } from "../lib/constants.js";
 import * as shell from "../lib/shell.js";
 import * as ui from "../lib/ui.js";
@@ -597,25 +596,32 @@ async function fixEnvironmentIssues(results) {
  * @returns {Promise<Object|null>} Health check results or null if skipped
  */
 export async function runStartupCheck(context) {
-  const lastCheckPassed = context.globalState.get(STATE_KEYS.ENV_CHECK_PASSED);
-  const lastCheckTimestamp = context.globalState.get(
-    STATE_KEYS.ENV_CHECK_TIMESTAMP
-  );
-  const now = Date.now();
+  const CACHE_KEY = "sfPreflight.lastCheckSuccess";
+  const CACHE_VALIDITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-  // If preflight passed before, only recheck after the configured interval
-  if (lastCheckPassed && lastCheckTimestamp) {
-    const timeSinceLastCheck = now - lastCheckTimestamp;
-    if (timeSinceLastCheck < TIME_INTERVALS.RECHECK_AFTER_SUCCESS) {
-      // Skip full check, but still return quick results for status bar
-      return await runHealthCheck(true);
+  // Check cache first
+  const lastSuccess = context.workspaceState.get(CACHE_KEY);
+  if (lastSuccess) {
+    const age = Date.now() - lastSuccess;
+    if (age < CACHE_VALIDITY_MS) {
+      console.log(`${EXTENSION_NAME}: Startup check skipped (Cached Success)`);
+      return {
+        cached: true,
+        isValid: true,
+        // Mimic structure needed for status bar
+        node: { installed: true, valid: true },
+        java: { installed: true, valid: true },
+        salesforceCLI: { installed: true },
+        packages: { allInstalled: true },
+        sfPlugins: { allInstalled: true },
+      };
     }
   }
 
   // Run silent check
   const results = await runHealthCheck(true);
 
-  const hasCriticalIssues =
+  const hasIssues =
     !results.salesforceCLI.installed ||
     !results.node.installed ||
     (results.packages && !results.packages.allInstalled) ||
@@ -624,37 +630,55 @@ export async function runStartupCheck(context) {
   const hasWarnings =
     !results.node.valid || !results.java.installed || !results.java.valid;
 
-  if (hasCriticalIssues || hasWarnings) {
-    // Reset passed state since there are issues
-    context.globalState.update(STATE_KEYS.ENV_CHECK_PASSED, false);
+  if (!hasIssues && !hasWarnings) {
+    // All good - cache success
+    await context.workspaceState.update(CACHE_KEY, Date.now());
+  } else {
+    // Issues found - clear cache
+    await context.workspaceState.update(CACHE_KEY, undefined);
 
+    // ... existing issue handling logic ...
     const hasRunBefore = context.globalState.get(
       STATE_KEYS.ENV_CHECK_COMPLETED
     );
 
-    if (!hasRunBefore) {
-      // First time - run full visible check
-      await runHealthCheck(false);
-      context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
-    } else if (hasCriticalIssues) {
-      // Has critical issues - prompt user
-      const action = await vscode.window.showWarningMessage(
+    if (!hasRunBefore && hasIssues) {
+       await runHealthCheck(false);
+       context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
+    } else if (hasIssues) {
+      // Prompt logic ...
+       const action = await vscode.window.showWarningMessage(
         `${EXTENSION_NAME}: Missing critical dependencies. Run environment check?`,
         "Check Now",
         "Dismiss"
       );
-
       if (action === "Check Now") {
         await runHealthCheck(false);
       }
     }
-    // For warnings only on subsequent runs, just update status bar silently
-  } else {
-    // All good - mark as passed with timestamp
-    context.globalState.update(STATE_KEYS.ENV_CHECK_PASSED, true);
-    context.globalState.update(STATE_KEYS.ENV_CHECK_TIMESTAMP, now);
-    context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
   }
 
   return results;
+}
+
+/**
+ * Update the health check cache manually (e.g. after manual run)
+ * @param {vscode.ExtensionContext} context
+ * @param {Object} results
+ */
+export async function updateHealthCheckCache(context, results) {
+  const CACHE_KEY = "sfPreflight.lastCheckSuccess";
+  const hasIssues =
+    !results.salesforceCLI.installed ||
+    !results.node.installed ||
+    (results.packages && !results.packages.allInstalled) ||
+    (results.sfPlugins && !results.sfPlugins.allInstalled);
+  const hasWarnings =
+    !results.node.valid || !results.java.installed || !results.java.valid;
+
+  if (!hasIssues && !hasWarnings) {
+    await context.workspaceState.update(CACHE_KEY, Date.now());
+  } else {
+    await context.workspaceState.update(CACHE_KEY, undefined);
+  }
 }

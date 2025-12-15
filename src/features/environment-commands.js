@@ -8,9 +8,13 @@ import * as ui from "../lib/ui.js";
 
 /**
  * Run full environment health check
+ * @param {vscode.ExtensionContext} context
  */
-export async function checkEnvironment() {
-  await environmentService.runHealthCheck(false);
+export async function checkEnvironment(context) {
+  const results = await environmentService.runHealthCheck(false);
+  if (context) {
+    await environmentService.updateHealthCheckCache(context, results);
+  }
 }
 
 /**

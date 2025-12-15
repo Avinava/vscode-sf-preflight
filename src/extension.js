@@ -2,6 +2,12 @@ import * as vscode from "vscode";
 import { EXTENSION_NAME, EXTENSION_ID } from "./lib/constants.js";
 import * as environmentService from "./services/environment.js";
 import * as environmentCommands from "./features/environment-commands.js";
+import { ProvisioningManager } from "./provisioning/ProvisioningManager.js";
+import { SpellCheckerProvisioner } from "./provisioning/spellChecker/SpellCheckerProvisioner.js";
+import { GitIgnoreProvisioner } from "./provisioning/gitIgnore/GitIgnoreProvisioner.js";
+import { PrettierProvisioner } from "./provisioning/prettier/PrettierProvisioner.js";
+import { EditorConfigProvisioner } from "./provisioning/editorConfig/EditorConfigProvisioner.js";
+import { VsCodeSettingsProvisioner } from "./provisioning/vscode/VsCodeSettingsProvisioner.js";
 
 /**
  * SF Preflight Extension
@@ -15,6 +21,7 @@ class Extension {
     this.context = context;
     this.isSfdxProject = false;
     this.statusBarItem = null;
+    this.provisioningManager = new ProvisioningManager(context);
   }
 
   /**
@@ -37,6 +44,10 @@ class Extension {
     // Create status bar item
     this.createStatusBar();
 
+    // Setup and run provisioning
+    this.setupProvisioning();
+    await this.provisioningManager.runOnStartup();
+
     // Run environment check on startup and update status bar
     const config = vscode.workspace.getConfiguration("sfPreflight");
     if (config.get("runHealthCheckOnStartup")) {
@@ -54,6 +65,27 @@ class Extension {
     this.watchSfdxProject();
     this.watchWorkspaceChanges();
     this.watchConfigChanges();
+  }
+
+  /**
+   * Setup provisioners
+   */
+  setupProvisioning() {
+    this.provisioningManager.registerProvisioner(
+      new SpellCheckerProvisioner(this.context)
+    );
+    this.provisioningManager.registerProvisioner(
+      new GitIgnoreProvisioner(this.context)
+    );
+    this.provisioningManager.registerProvisioner(
+      new PrettierProvisioner(this.context)
+    );
+    this.provisioningManager.registerProvisioner(
+      new EditorConfigProvisioner(this.context)
+    );
+    this.provisioningManager.registerProvisioner(
+      new VsCodeSettingsProvisioner(this.context)
+    );
   }
 
   /**
@@ -128,10 +160,16 @@ class Extension {
       );
       this.statusBarItem.color = undefined;
     } else {
-      this.statusBarItem.text = "$(pass-filled) SF Preflight";
-      this.statusBarItem.tooltip = "Environment OK - Click to run health check";
       this.statusBarItem.backgroundColor = undefined;
       this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
+      
+      if (results.cached) {
+        this.statusBarItem.tooltip = "Environment Ready (Cached) - Click to run full check";
+        this.statusBarItem.text = "$(pass-filled) SF Preflight (Cached)";
+      } else {
+        this.statusBarItem.text = "$(pass-filled) SF Preflight";
+        this.statusBarItem.tooltip = "Environment OK - Click to run health check";
+      }
     }
   }
 
@@ -219,7 +257,7 @@ class Extension {
     const commands = [
       {
         command: `${EXTENSION_ID}.checkEnvironment`,
-        callback: () => environmentCommands.checkEnvironment(),
+        callback: () => environmentCommands.checkEnvironment(this.context),
       },
       {
         command: `${EXTENSION_ID}.checkJava`,
