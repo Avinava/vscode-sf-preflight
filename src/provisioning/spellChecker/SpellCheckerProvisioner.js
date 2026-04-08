@@ -15,6 +15,18 @@ export class SpellCheckerProvisioner extends Provisioner {
   }
 
   async execute(force = false) {
+    // Soft-check: skip if Code Spell Checker extension is not installed
+    // (we no longer force it via extensionDependencies)
+    const spellCheckerExt = vscode.extensions.getExtension(
+      "streetsidesoftware.code-spell-checker"
+    );
+    if (!spellCheckerExt) {
+      console.log(
+        "SF Preflight: Spell Checker provisioner skipped — Code Spell Checker extension not installed"
+      );
+      return [];
+    }
+
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
       return [];

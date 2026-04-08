@@ -591,69 +591,68 @@ async function fixEnvironmentIssues(results) {
 }
 
 /**
- * Run environment check on startup (non-intrusive)
+ * Run environment check on startup (non-intrusive).
+ * Uses globalState so the cache persists across workspace switches.
+ * Only shows notifications for CRITICAL issues (node/sf CLI missing).
+ * Warnings (Java version, optional packages) are only surfaced via status bar.
  * @param {vscode.ExtensionContext} context
  * @returns {Promise<Object|null>} Health check results or null if skipped
  */
 export async function runStartupCheck(context) {
-  const CACHE_KEY = "sfPreflight.lastCheckSuccess";
+  const CACHE_KEY = "sfPreflight.lastCheckResult";
   const CACHE_VALIDITY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   // Check cache first
-  const lastSuccess = context.workspaceState.get(CACHE_KEY);
-  if (lastSuccess) {
-    const age = Date.now() - lastSuccess;
+  const cached = context.globalState.get(CACHE_KEY);
+  if (cached && cached.timestamp) {
+    const age = Date.now() - cached.timestamp;
     if (age < CACHE_VALIDITY_MS) {
-      console.log(`${EXTENSION_NAME}: Startup check skipped (Cached Success)`);
+      console.log(`${EXTENSION_NAME}: Startup check skipped (cached ${Math.round(age / 60000)}m ago)`);
       return {
+        ...cached.results,
         cached: true,
-        isValid: true,
-        // Mimic structure needed for status bar
-        node: { installed: true, valid: true },
-        java: { installed: true, valid: true },
-        salesforceCLI: { installed: true },
-        packages: { allInstalled: true },
-        sfPlugins: { allInstalled: true },
       };
     }
   }
 
-  // Run silent check
+  // Run silent check — never show the full results dialog on startup
   const results = await runHealthCheck(true);
 
   const hasIssues =
     !results.salesforceCLI.installed ||
-    !results.node.installed ||
+    !results.node.installed;
+
+  const hasWarnings =
+    !results.node.valid ||
+    !results.java.installed ||
+    !results.java.valid ||
     (results.packages && !results.packages.allInstalled) ||
     (results.sfPlugins && !results.sfPlugins.allInstalled);
 
-  const hasWarnings =
-    !results.node.valid || !results.java.installed || !results.java.valid;
-
   if (!hasIssues && !hasWarnings) {
-    // All good - cache success
-    await context.workspaceState.update(CACHE_KEY, Date.now());
+    // All good — cache the full result set
+    await context.globalState.update(CACHE_KEY, {
+      timestamp: Date.now(),
+      results,
+    });
   } else {
-    // Issues found - clear cache
-    await context.workspaceState.update(CACHE_KEY, undefined);
+    // Issues found — clear cache so we re-check next startup
+    await context.globalState.update(CACHE_KEY, undefined);
 
-    // ... existing issue handling logic ...
-    const hasRunBefore = context.globalState.get(
-      STATE_KEYS.ENV_CHECK_COMPLETED
-    );
+    // Only show a notification for critical issues (node or sf CLI missing).
+    // Warnings are surfaced via the status bar icon color — no popup.
+    if (hasIssues) {
+      const missing = [];
+      if (!results.node.installed) missing.push("Node.js");
+      if (!results.salesforceCLI.installed) missing.push("Salesforce CLI (sf)");
 
-    if (!hasRunBefore && hasIssues) {
-       await runHealthCheck(false);
-       context.globalState.update(STATE_KEYS.ENV_CHECK_COMPLETED, true);
-    } else if (hasIssues) {
-      // Prompt logic ...
-       const action = await vscode.window.showWarningMessage(
-        `${EXTENSION_NAME}: Missing critical dependencies. Run environment check?`,
-        "Check Now",
+      const action = await vscode.window.showWarningMessage(
+        `${EXTENSION_NAME}: Missing critical tools: ${missing.join(", ")}`,
+        "Fix Now",
         "Dismiss"
       );
-      if (action === "Check Now") {
-        await runHealthCheck(false);
+      if (action === "Fix Now") {
+        await fixEnvironmentIssues(results);
       }
     }
   }
@@ -667,18 +666,23 @@ export async function runStartupCheck(context) {
  * @param {Object} results
  */
 export async function updateHealthCheckCache(context, results) {
-  const CACHE_KEY = "sfPreflight.lastCheckSuccess";
+  const CACHE_KEY = "sfPreflight.lastCheckResult";
   const hasIssues =
     !results.salesforceCLI.installed ||
-    !results.node.installed ||
+    !results.node.installed;
+  const hasWarnings =
+    !results.node.valid ||
+    !results.java.installed ||
+    !results.java.valid ||
     (results.packages && !results.packages.allInstalled) ||
     (results.sfPlugins && !results.sfPlugins.allInstalled);
-  const hasWarnings =
-    !results.node.valid || !results.java.installed || !results.java.valid;
 
   if (!hasIssues && !hasWarnings) {
-    await context.workspaceState.update(CACHE_KEY, Date.now());
+    await context.globalState.update(CACHE_KEY, {
+      timestamp: Date.now(),
+      results,
+    });
   } else {
-    await context.workspaceState.update(CACHE_KEY, undefined);
+    await context.globalState.update(CACHE_KEY, undefined);
   }
 }

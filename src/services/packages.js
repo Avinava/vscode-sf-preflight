@@ -6,7 +6,6 @@ import {
 } from "../lib/constants.js";
 import * as shell from "../lib/shell.js";
 import * as ui from "../lib/ui.js";
-import * as environmentService from "./environment.js";
 import * as pluginService from "./sf-plugins.js";
 
 /**
@@ -15,42 +14,51 @@ import * as pluginService from "./sf-plugins.js";
  */
 
 /**
- * Check required packages status
- * @returns {Promise<{installed: string[], missing: string[], allInstalled: boolean}>}
+ * Check if a single npm package is installed globally.
+ * Uses `npm list -g <pkg> --depth=0` which is reliable regardless
+ * of how the package was installed.
+ * @param {string} pkg - Package name
+ * @returns {Promise<boolean>}
  */
-export async function checkPackages() {
+async function isPackageInstalled(pkg) {
   try {
     const stdout = await shell.execCommand(
-      `npm list -g ${REQUIRED_PACKAGES.join(" ")} 2>&1`
+      `npm list -g ${pkg} --depth=0 2>/dev/null`
     );
-    return parsePackageOutput(stdout);
-  } catch (error) {
-    const output = error.message || "";
-    return parsePackageOutput(output);
+    // npm list prints the package name in the tree output when found
+    return stdout.includes(pkg);
+  } catch {
+    return false;
   }
 }
 
 /**
- * Parse npm list output to determine package status
- * @param {string} stdout
- * @returns {{installed: string[], missing: string[], allInstalled: boolean}}
+ * Check required packages status.
+ * Checks each package individually for reliability — `npm list -g` with
+ * multiple packages exits non-zero if ANY is missing, making the output
+ * unreliable for determining which ones are present.
+ * @returns {Promise<{installed: string[], missing: string[], allInstalled: boolean}>}
  */
-function parsePackageOutput(stdout) {
+export async function checkPackages() {
   const installed = [];
   const missing = [];
 
   for (const pkg of REQUIRED_PACKAGES) {
-    if (stdout.includes(pkg)) {
+    const found = await isPackageInstalled(pkg);
+    if (found) {
       installed.push(pkg);
     } else {
       missing.push(pkg);
     }
   }
 
-  // Special handling for prettier-plugin-apex (check for alternative package)
+  // Special handling for prettier-plugin-apex (check for community fork)
   const prettierApexIndex = missing.indexOf("prettier-plugin-apex");
   if (prettierApexIndex !== -1) {
-    if (stdout.includes("@ilyamatsuev/prettier-plugin-apex")) {
+    const hasFork = await isPackageInstalled(
+      "@ilyamatsuev/prettier-plugin-apex"
+    );
+    if (hasFork) {
       missing.splice(prettierApexIndex, 1);
       installed.push("prettier-plugin-apex (alternative)");
     }
@@ -69,7 +77,6 @@ function parsePackageOutput(stdout) {
  */
 export async function managePackages(context) {
   try {
-    await checkNodeInstallation();
     const packageStatus = await checkPackages();
 
     if (packageStatus.missing.length > 0) {
@@ -93,19 +100,6 @@ export async function managePackages(context) {
     await pluginService.install(context);
   } catch (error) {
     vscode.window.showErrorMessage(String(error));
-  }
-}
-
-/**
- * Check if Node.js is installed
- * @throws {Error} If Node.js is not installed
- */
-async function checkNodeInstallation() {
-  const nodeCheck = await environmentService.checkNodeJS();
-  if (!nodeCheck.installed) {
-    throw new Error(
-      `${EXTENSION_NAME}: Node.js is not installed. Please install Node.js to use this extension.`
-    );
   }
 }
 

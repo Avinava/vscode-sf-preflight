@@ -4,6 +4,7 @@
 .git
 .gitignore
 .gemini
+.github
 
 # Development
 node_modules

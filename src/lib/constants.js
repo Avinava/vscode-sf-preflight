@@ -6,22 +6,22 @@ export const EXTENSION_NAME = "SF Preflight";
 export const EXTENSION_ID = "sf-preflight";
 
 /**
- * Required npm packages for Salesforce development
+ * Recommended npm packages for Salesforce development.
+ * These are checked individually for reliability (npm list -g can be flaky).
+ * Note: @salesforce/cli is detected via `sf --version` instead of npm list,
+ * since many users install it via the standalone installer.
  */
 export const REQUIRED_PACKAGES = [
-  "@salesforce/cli",
   "prettier",
   "@prettier/plugin-xml",
   "prettier-plugin-apex",
 ];
 
 /**
- * Required SF CLI plugins
+ * Required SF CLI plugins.
+ * Note: @salesforce/sfdx-scanner is deprecated and bundled inside code-analyzer.
  */
-export const REQUIRED_SF_PLUGINS = [
-  "@salesforce/sfdx-scanner",
-  "code-analyzer",
-];
+export const REQUIRED_SF_PLUGINS = ["code-analyzer"];
 
 /**
  * Global state keys used by the extension

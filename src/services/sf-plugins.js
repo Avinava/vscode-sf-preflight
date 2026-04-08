@@ -8,17 +8,29 @@ import * as ui from "../lib/ui.js";
  */
 
 /**
- * Check SF CLI plugins status
+ * Check SF CLI plugins status.
+ * Uses line-by-line matching instead of substring includes to avoid
+ * false positives (e.g. "code-analyzer" matching "code-analyzer-core").
  * @returns {Promise<{installed: string[], missing: string[], allInstalled: boolean}>}
  */
 export async function checkPlugins() {
   try {
     const output = await shell.execCommand("sf plugins");
+    const lines = output.split("\n").map((line) => line.trim());
     const installed = [];
     const missing = [];
 
     for (const plugin of REQUIRED_SF_PLUGINS) {
-      if (output.includes(plugin)) {
+      // Each line of `sf plugins` output looks like:
+      //   @salesforce/plugin-deploy-retrieve 3.9.18 (core)
+      //   code-analyzer 5.0.0
+      // Match the plugin name at the start of a line (possibly with @ prefix)
+      const found = lines.some((line) => {
+        const pluginName = line.split(/\s+/)[0]; // first token is the package name
+        return pluginName === plugin;
+      });
+
+      if (found) {
         installed.push(plugin);
       } else {
         missing.push(plugin);
