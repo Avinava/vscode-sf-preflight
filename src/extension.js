@@ -46,12 +46,12 @@ class Extension {
 
     // Setup and run provisioning
     this.setupProvisioning();
-    if (this.isSfdxProject) {
+    const config = vscode.workspace.getConfiguration("sfPreflight");
+    if (this.isSfdxProject && config.get("provisioning.runOnStartup")) {
       await this.provisioningManager.runOnStartup();
     }
 
     // Run environment check on startup and update status bar
-    const config = vscode.workspace.getConfiguration("sfPreflight");
     if (config.get("runHealthCheckOnStartup")) {
       const results = await environmentService.runStartupCheck(this.context);
       // Use the results from startup check to update status bar
@@ -243,11 +243,10 @@ class Extension {
     );
 
     if (this.isSfdxProject) {
-      vscode.window.showInformationMessage(
-        `${EXTENSION_NAME}: Salesforce DX project detected!`
-      );
-      // Run provisioning when project is detected/created
-      await this.provisioningManager.runOnStartup();
+      const config = vscode.workspace.getConfiguration("sfPreflight");
+      if (config.get("provisioning.runOnStartup")) {
+        await this.provisioningManager.runOnStartup();
+      }
     }
 
     // Update status bar when project status changes
@@ -276,12 +275,28 @@ class Extension {
         callback: () => environmentCommands.checkNodeJS(),
       },
       {
-        "command": `${EXTENSION_ID}.showProjectInfo`,
-        "callback": () => environmentCommands.showProjectInfo(),
+        command: `${EXTENSION_ID}.showProjectInfo`,
+        callback: () => environmentCommands.showProjectInfo(),
       },
       {
-        "command": `${EXTENSION_ID}.openMenu`,
-        "callback": () => this.openActionMenu(),
+        command: `${EXTENSION_ID}.fixEnvironment`,
+        callback: () => environmentCommands.fixEnvironment(this.context),
+      },
+      {
+        command: `${EXTENSION_ID}.applyRecommendedSetup`,
+        callback: () => this.provisioningManager.applyRecommendedSetup(),
+      },
+      {
+        command: `${EXTENSION_ID}.provisionForce`,
+        callback: () => this.provisioningManager.runForce(),
+      },
+      {
+        command: `${EXTENSION_ID}.showLogs`,
+        callback: () => environmentCommands.showLogs(),
+      },
+      {
+        command: `${EXTENSION_ID}.openMenu`,
+        callback: () => this.openActionMenu(),
       },
     ];
 
@@ -303,14 +318,29 @@ class Extension {
         command: `${EXTENSION_ID}.checkEnvironment`,
       },
       {
+        label: "$(wrench) Fix Environment Issues",
+        description: "Show copyable setup commands and docs",
+        command: `${EXTENSION_ID}.fixEnvironment`,
+      },
+      {
+        label: "$(checklist) Apply Recommended Setup",
+        description: "Create missing project config files",
+        command: `${EXTENSION_ID}.applyRecommendedSetup`,
+      },
+      {
         label: "$(refresh) Force Re-provision Configuration",
         description: "Regenerate config files (warning: overwrites)",
-        command: "sf-preflight.provisionForce",
+        command: `${EXTENSION_ID}.provisionForce`,
       },
       {
         label: "$(info) Show Project Info",
         description: "Display detected project details",
         command: `${EXTENSION_ID}.showProjectInfo`,
+      },
+      {
+        label: "$(output) Show Logs",
+        description: "Open SF Preflight output channel",
+        command: `${EXTENSION_ID}.showLogs`,
       },
     ];
 
@@ -319,14 +349,7 @@ class Extension {
     });
 
     if (selection) {
-      if (selection.command === `${EXTENSION_ID}.checkEnvironment`) {
-        // Pass context if needed, though checkEnvironment expects it
-        await environmentCommands.checkEnvironment(this.context);
-      } else if (selection.command === "sf-preflight.provisionForce") {
-        await this.provisioningManager.runForce();
-      } else {
-        await vscode.commands.executeCommand(selection.command);
-      }
+      await vscode.commands.executeCommand(selection.command);
     }
   }
 

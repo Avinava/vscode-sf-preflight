@@ -1,12 +1,15 @@
 import * as vscode from "vscode";
 import {
-  EXTENSION_NAME,
   REQUIRED_PACKAGES,
   STATE_KEYS,
 } from "../lib/constants.js";
 import * as shell from "../lib/shell.js";
 import * as ui from "../lib/ui.js";
 import * as pluginService from "./sf-plugins.js";
+import {
+  detectPackageManager,
+  readDeclaredPackages,
+} from "./package-manager.js";
 
 /**
  * Package management service
@@ -22,14 +25,21 @@ import * as pluginService from "./sf-plugins.js";
  */
 async function isPackageInstalled(pkg) {
   try {
-    const stdout = await shell.execCommand(
-      `npm list -g ${pkg} --depth=0 2>/dev/null`
+    const { stdout } = await shell.execCommandArgs(
+      "npm",
+      ["list", "-g", pkg, "--depth=0"],
+      { timeout: 20000 }
     );
     // npm list prints the package name in the tree output when found
     return stdout.includes(pkg);
   } catch {
     return false;
   }
+}
+
+async function isPackageDeclared(pkg, workspacePath) {
+  const declaredPackages = await readDeclaredPackages(workspacePath);
+  return Boolean(declaredPackages[pkg]);
 }
 
 /**
@@ -39,12 +49,15 @@ async function isPackageInstalled(pkg) {
  * unreliable for determining which ones are present.
  * @returns {Promise<{installed: string[], missing: string[], allInstalled: boolean}>}
  */
-export async function checkPackages() {
+export async function checkPackages(workspacePath) {
   const installed = [];
   const missing = [];
+  const manager = await detectPackageManager(workspacePath);
 
   for (const pkg of REQUIRED_PACKAGES) {
-    const found = await isPackageInstalled(pkg);
+    const found =
+      (await isPackageDeclared(pkg, workspacePath)) ||
+      (await isPackageInstalled(pkg));
     if (found) {
       installed.push(pkg);
     } else {
@@ -68,6 +81,8 @@ export async function checkPackages() {
     installed,
     missing,
     allInstalled: missing.length === 0,
+    manager: manager.name,
+    installCommand: manager.addDev(missing),
   };
 }
 
@@ -80,15 +95,8 @@ export async function managePackages(context) {
     const packageStatus = await checkPackages();
 
     if (packageStatus.missing.length > 0) {
-      const userConfirmed = await ui.confirm(
-        `The following node packages will be installed globally: ${packageStatus.missing.join(", ")}. Do you want to proceed?`
-      );
-
-      if (userConfirmed) {
-        await installMissingPackages(packageStatus.missing);
-      } else {
-        return;
-      }
+      await promptPackageInstall(packageStatus);
+      return;
     } else {
       if (!context.globalState.get(STATE_KEYS.PACKAGES_CHECKED)) {
         ui.showInfo("Required packages are already installed.");
@@ -104,24 +112,6 @@ export async function managePackages(context) {
 }
 
 /**
- * Install missing npm packages globally
- * @param {string[]} missingPackages
- */
-async function installMissingPackages(missingPackages) {
-  try {
-    const installCommand = `npm install -g ${missingPackages.join(" ")}`;
-    await shell.execCommand(installCommand);
-    ui.showInfo(
-      `Successfully installed npm packages: ${missingPackages.join(", ")}`
-    );
-  } catch (error) {
-    throw new Error(
-      `${EXTENSION_NAME}: Failed to install npm packages: ${error.message}`
-    );
-  }
-}
-
-/**
  * Prompt to install missing packages
  * @param {Object} packageStatus - Package check result
  * @returns {Promise<boolean>}
@@ -133,32 +123,26 @@ export async function promptPackageInstall(packageStatus) {
 
   const install = await vscode.window.showWarningMessage(
     `Missing npm packages: ${packageStatus.missing.join(", ")}`,
-    "Install Now",
+    "Copy Command",
+    "Open Terminal",
     "Later"
   );
 
-  if (install === "Install Now") {
-    try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: `Installing npm packages: ${packageStatus.missing.join(", ")}`,
-          cancellable: false,
-        },
-        async () => {
-          await shell.execCommand(
-            `npm install -g ${packageStatus.missing.join(" ")}`
-          );
-        }
-      );
-      ui.showInfo(
-        `Successfully installed: ${packageStatus.missing.join(", ")}`
-      );
-      return true;
-    } catch (error) {
-      ui.showError(`Failed to install packages: ${error.message}`);
-      return false;
-    }
+  const command =
+    packageStatus.installCommand ||
+    `npm install --save-dev ${packageStatus.missing.join(" ")}`;
+
+  if (install === "Copy Command") {
+    await vscode.env.clipboard.writeText(command);
+    ui.showInfo("Package install command copied to clipboard.");
+    return true;
+  }
+
+  if (install === "Open Terminal") {
+    const terminal = vscode.window.createTerminal("SF Preflight Packages");
+    terminal.show();
+    terminal.sendText(command, false);
+    return true;
   }
 
   return false;

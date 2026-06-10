@@ -15,18 +15,19 @@ export class PrettierProvisioner extends Provisioner {
   }
 
   async execute(force = false) {
-    const rootUri = vscode.workspace.workspaceFolders[0].uri;
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      return [];
+    }
+
+    const rootUri = workspaceFolders[0].uri;
     const createdFiles = [];
 
     // 1. .prettierrc
     const rcUri = vscode.Uri.joinPath(rootUri, ".prettierrc");
     let createRc = force;
     if (!createRc) {
-      try {
-        await vscode.workspace.fs.stat(rcUri);
-      } catch {
-        createRc = true;
-      }
+      createRc = !(await this.fileExists(rcUri));
     }
 
     if (createRc) {
@@ -41,7 +42,7 @@ export class PrettierProvisioner extends Provisioner {
         JSON.stringify(template, null, 2),
         "utf8"
       );
-      await vscode.workspace.fs.writeFile(rcUri, writeData);
+      await this.writeFileWithBackup(rcUri, writeData, force);
       createdFiles.push(".prettierrc");
     }
 
@@ -49,11 +50,7 @@ export class PrettierProvisioner extends Provisioner {
     const ignoreUri = vscode.Uri.joinPath(rootUri, ".prettierignore");
     let createIgnore = force;
     if (!createIgnore) {
-      try {
-        await vscode.workspace.fs.stat(ignoreUri);
-      } catch {
-        createIgnore = true;
-      }
+      createIgnore = !(await this.fileExists(ignoreUri));
     }
 
     if (createIgnore) {
@@ -64,7 +61,7 @@ export class PrettierProvisioner extends Provisioner {
       );
 
       const writeData = Buffer.from(template.trim(), "utf8");
-      await vscode.workspace.fs.writeFile(ignoreUri, writeData);
+      await this.writeFileWithBackup(ignoreUri, writeData, force);
       createdFiles.push(".prettierignore");
     }
     

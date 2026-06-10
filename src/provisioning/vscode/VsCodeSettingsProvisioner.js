@@ -11,9 +11,9 @@ export class VsCodeSettingsProvisioner extends Provisioner {
     return "provisioning.vscodeSettings";
   }
 
-  async execute() {
+  async execute(force = false) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) return;
+    if (!workspaceFolders) return [];
     const rootUri = workspaceFolders[0].uri;
 
     const vscodeDir = vscode.Uri.joinPath(rootUri, ".vscode");
@@ -26,29 +26,40 @@ export class VsCodeSettingsProvisioner extends Provisioner {
          // ignore
       }
 
-      const settingsUri = vscode.Uri.joinPath(rootUri, ".vscode", "settings.json");
-      
-      let create = force;
-      if (!create) {
-        try {
-          await vscode.workspace.fs.stat(settingsUri);
-        } catch {
-          create = true;
-        }
+      const settingsUri = vscode.Uri.joinPath(
+        rootUri,
+        ".vscode",
+        "settings.json"
+      );
+
+      const template = this.getConfig(
+        "provisioning.templates.vscodeSettings",
+        STANDARD_VSCODE_SETTINGS
+      );
+
+      if (force || !(await this.fileExists(settingsUri))) {
+        const writeData = Buffer.from(JSON.stringify(template, null, 2), "utf8");
+        await this.writeFileWithBackup(settingsUri, writeData, force);
+        return [".vscode/settings.json"];
       }
 
-      // Future: Merge functionality could go here even for force? 
-      // For now, force means overwrite.
+      const currentContent = Buffer.from(
+        await vscode.workspace.fs.readFile(settingsUri)
+      ).toString("utf8");
+      let currentSettings;
+      try {
+        currentSettings = JSON.parse(currentContent);
+      } catch (error) {
+        console.error("Error parsing VS Code settings:", error);
+        return [];
+      }
 
-      if (create) {
-        // Create or Overwrite
-        const template = this.getConfig(
-          "provisioning.templates.vscodeSettings",
-          STANDARD_VSCODE_SETTINGS
-        );
-
+      const mergedSettings = mergeDefaults(template, currentSettings);
+      if (
+        JSON.stringify(mergedSettings) !== JSON.stringify(currentSettings)
+      ) {
         const writeData = Buffer.from(
-          JSON.stringify(template, null, 2),
+          JSON.stringify(mergedSettings, null, 2),
           "utf8"
         );
         await vscode.workspace.fs.writeFile(settingsUri, writeData);
@@ -59,4 +70,21 @@ export class VsCodeSettingsProvisioner extends Provisioner {
     }
     return [];
   }
+}
+
+function mergeDefaults(defaults, current) {
+  const merged = { ...defaults, ...current };
+  for (const [key, value] of Object.entries(defaults)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      current[key] &&
+      typeof current[key] === "object" &&
+      !Array.isArray(current[key])
+    ) {
+      merged[key] = mergeDefaults(value, current[key]);
+    }
+  }
+  return merged;
 }

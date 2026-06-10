@@ -2,11 +2,12 @@
   "name": "sf-preflight",
   "displayName": "SF Preflight",
   "description": "Environment health checks and setup verification for Salesforce development",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "avidev9",
   "type": "module",
   "scripts": {
-    "lint": "eslint src/**/*.js",
+    "lint": "eslint src/**/*.js tests/**/*.js",
+    "test": "vitest run",
     "clean": "rm -rf release/*.vsix",
     "prebuild": "yarn clean",
     "build": "npx @vscode/vsce package --out release/",
@@ -38,9 +39,9 @@
     "@eslint/js": "^9.39.1",
     "@vscode/vsce": "^3.2.1",
     "eslint": "^9.13.0",
+    "vitest": "^4.1.8",
     "vscode": "^1.1.37"
   },
-
   "contributes": {
     "configuration": {
       "type": "object",
@@ -58,8 +59,8 @@
         },
         "sfPreflight.provisioning.runOnStartup": {
           "type": "boolean",
-          "default": true,
-          "description": "Automatically run enabled provisioners (like Spell Checker) on project open"
+          "default": false,
+          "description": "Automatically run enabled provisioners on project open. Disabled by default so workspace files are only created by explicit setup commands."
         },
         "sfPreflight.provisioning.spellChecker": {
           "type": "boolean",
@@ -179,10 +180,28 @@
         "icon": "$(info)"
       },
       {
+        "command": "sf-preflight.fixEnvironment",
+        "title": "SF Preflight: Fix Environment Issues",
+        "shortTitle": "Fix Environment",
+        "icon": "$(wrench)"
+      },
+      {
+        "command": "sf-preflight.applyRecommendedSetup",
+        "title": "SF Preflight: Apply Recommended Setup",
+        "shortTitle": "Apply Setup",
+        "icon": "$(checklist)"
+      },
+      {
         "command": "sf-preflight.provisionForce",
         "title": "SF Preflight: Force Re-provision Configuration",
         "shortTitle": "Force Re-provision",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "sf-preflight.showLogs",
+        "title": "SF Preflight: Show Logs",
+        "shortTitle": "Show Logs",
+        "icon": "$(output)"
       }
     ],
     "menus": {

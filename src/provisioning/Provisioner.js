@@ -29,13 +29,14 @@ export class Provisioner {
 
   /**
    * Check if the provisioner should run based on configuration
+   * @param {{ignoreMaster?: boolean}} options
    * @returns {boolean}
    */
-  isEnabled() {
+  isEnabled(options = {}) {
     const config = vscode.workspace.getConfiguration("sfPreflight");
     // Check master switch first
     const masterEnabled = config.get("provisioning.runOnStartup");
-    if (!masterEnabled) {
+    if (!options.ignoreMaster && !masterEnabled) {
       return false;
     }
     // Check specific provisioner switch
@@ -63,5 +64,40 @@ export class Provisioner {
    */
   async execute(_force = false) {
     throw new Error("Method 'execute()' must be implemented.");
+  }
+
+  /**
+   * Check if a workspace file exists.
+   * @param {vscode.Uri} uri
+   * @returns {Promise<boolean>}
+   */
+  async fileExists(uri) {
+    try {
+      await vscode.workspace.fs.stat(uri);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Write a workspace file and create a timestamped backup before force writes.
+   * @param {vscode.Uri} uri
+   * @param {Uint8Array} data
+   * @param {boolean} force
+   * @returns {Promise<void>}
+   */
+  async writeFileWithBackup(uri, data, force) {
+    if (force && (await this.fileExists(uri))) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const fileName = uri.path.split("/").pop();
+      const parentPath = uri.path.replace(/\/[^/]+$/, "");
+      const backupUri = uri.with({
+        path: `${parentPath}/${fileName}.sf-preflight-${timestamp}.bak`,
+      });
+      await vscode.workspace.fs.copy(uri, backupUri, { overwrite: false });
+    }
+
+    await vscode.workspace.fs.writeFile(uri, data);
   }
 }

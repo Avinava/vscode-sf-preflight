@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as environmentService from "../services/environment.js";
 import * as ui from "../lib/ui.js";
+import * as logger from "../lib/logger.js";
 
 /**
  * Environment health command handlers
@@ -15,6 +16,18 @@ export async function checkEnvironment(context) {
   if (context) {
     await environmentService.updateHealthCheckCache(context, results);
   }
+}
+
+/**
+ * Show explicit environment fix actions.
+ * @param {vscode.ExtensionContext} context
+ */
+export async function fixEnvironment(context) {
+  const results = await environmentService.runHealthCheck(true);
+  if (context) {
+    await environmentService.updateHealthCheckCache(context, results);
+  }
+  await environmentService.fixEnvironmentIssues(results);
 }
 
 /**
@@ -108,4 +121,11 @@ export async function showProjectInfo() {
     const doc = await vscode.workspace.openTextDocument(projectInfo.path);
     await vscode.window.showTextDocument(doc);
   }
+}
+
+/**
+ * Show the extension output channel.
+ */
+export function showLogs() {
+  logger.getOutputChannel().show(true);
 }

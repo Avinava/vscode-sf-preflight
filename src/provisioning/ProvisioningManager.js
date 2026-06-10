@@ -29,15 +29,31 @@ export class ProvisioningManager {
    * Run all enabled provisioners with force flag
    */
   async runForce() {
+    const files = [
+      ".prettierrc",
+      ".prettierignore",
+      ".editorconfig",
+      ".gitignore",
+      ".vscode/settings.json",
+      "cspell.json",
+      ".cspell/salesforce-terms.txt",
+    ];
     const answer = await vscode.window.showWarningMessage(
-      "Are you sure you want to force re-provisioning? This will overwrite your configuration files (.prettierrc, .editorconfig, etc.) with the standard templates. Any custom changes in these files will be lost.",
+      `Force re-provisioning will overwrite enabled setup files and create timestamped backups first: ${files.join(", ")}`,
       "Yes, Overwrite",
       "Cancel"
     );
 
     if (answer === "Yes, Overwrite") {
-      await this.runProvisioning({ force: true });
+      await this.runProvisioning({ force: true, ignoreMaster: true });
     }
+  }
+
+  /**
+   * Explicitly apply recommended setup without overwriting existing files.
+   */
+  async applyRecommendedSetup() {
+    await this.runProvisioning({ force: false, ignoreMaster: true });
   }
 
   /**
@@ -52,13 +68,14 @@ export class ProvisioningManager {
    * Internal execution logic
    * @param {Object} options
    * @param {boolean} options.force
+   * @param {boolean} [options.ignoreMaster]
    */
-  async runProvisioning({ force }) {
+  async runProvisioning({ force, ignoreMaster = false }) {
     const allCreatedFiles = [];
 
     for (const provisioner of this.provisioners) {
       try {
-        if (provisioner.isEnabled()) {
+        if (provisioner.isEnabled({ ignoreMaster })) {
           console.log(`SF Preflight: Running ${provisioner.getName()} (Force: ${force})...`);
           const created = await provisioner.execute(force);
           if (created && Array.isArray(created)) {

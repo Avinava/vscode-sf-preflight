@@ -71,14 +71,7 @@ export class SpellCheckerProvisioner extends Provisioner {
     // 2. Check and Create cspell.json
     let createConfig = force;
     if (!createConfig) {
-      try {
-        await vscode.workspace.fs.stat(configUri);
-        // File exists, we respect user config for now and do not overwrite unless forced.
-        createConfig = false;
-      } catch {
-        // File does not exist, so we should create it.
-        createConfig = true;
-      }
+      createConfig = !(await this.fileExists(configUri));
     }
 
 
@@ -89,21 +82,14 @@ export class SpellCheckerProvisioner extends Provisioner {
         JSON.stringify(defaultConfig, null, 2),
         "utf8"
       );
-      await vscode.workspace.fs.writeFile(configUri, writeData);
+      await this.writeFileWithBackup(configUri, writeData, force);
       createdFiles.push("cspell.json");
     }
 
     // 3. Check and Create Dictionary
     let createDict = force;
     if (!createDict) {
-      try {
-        await vscode.workspace.fs.stat(dictionaryFileUri);
-        // File exists, we respect user config for now and do not overwrite unless forced.
-        createDict = false;
-      } catch {
-        // File does not exist, so we should create it.
-        createDict = true;
-      }
+      createDict = !(await this.fileExists(dictionaryFileUri));
     }
 
     if (createDict) {
@@ -112,10 +98,10 @@ export class SpellCheckerProvisioner extends Provisioner {
 
       // Write the dictionary file
       const dictData = Buffer.from(SALESFORCE_TERMS, "utf8");
-      await vscode.workspace.fs.writeFile(dictionaryFileUri, dictData);
-      vscode.window.showInformationMessage(
-        "SF Preflight: Created Salesforce specific dictionary."
-      );
+      await this.writeFileWithBackup(dictionaryFileUri, dictData, force);
+      createdFiles.push(".cspell/salesforce-terms.txt");
     }
+
+    return createdFiles;
   }
 }

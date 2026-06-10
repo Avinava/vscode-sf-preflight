@@ -15,7 +15,9 @@ import * as ui from "../lib/ui.js";
  */
 export async function checkPlugins() {
   try {
-    const output = await shell.execCommand("sf plugins");
+    const { stdout: output } = await shell.execCommandArgs("sf", ["plugins"], {
+      timeout: 30000,
+    });
     const lines = output.split("\n").map((line) => line.trim());
     const installed = [];
     const missing = [];
@@ -63,13 +65,7 @@ export async function install(context) {
     const pluginStatus = await checkPlugins();
 
     if (pluginStatus.missing.length > 0) {
-      const userConfirmed = await ui.confirm(
-        `The following SF plugins will be installed: ${pluginStatus.missing.join(", ")}. Do you want to proceed?`
-      );
-
-      if (userConfirmed) {
-        await installPlugins(pluginStatus.missing);
-      }
+      await promptPluginInstall(pluginStatus);
     } else {
       if (!context.globalState.get(STATE_KEYS.SF_PLUGINS_CHECKED)) {
         ui.showInfo(
@@ -89,28 +85,11 @@ export async function install(context) {
  */
 async function verifySfCliInstalled() {
   try {
-    await shell.execCommand("sf --version");
+    await shell.execCommandArgs("sf", ["--version"]);
   } catch {
     throw new Error(
       "Salesforce CLI (sf) is not available. Please ensure @salesforce/cli is installed first."
     );
-  }
-}
-
-/**
- * Install SF CLI plugins
- * @param {string[]} pluginsToInstall
- */
-async function installPlugins(pluginsToInstall) {
-  try {
-    for (const plugin of pluginsToInstall) {
-      await shell.execCommand(`sf plugins install ${plugin}`);
-    }
-    ui.showInfo(
-      `Successfully installed SF plugins: ${pluginsToInstall.join(", ")}`
-    );
-  } catch (error) {
-    throw new Error(`Failed to install SF plugins: ${error.message}`);
   }
 }
 
@@ -126,33 +105,24 @@ export async function promptPluginInstall(pluginStatus) {
 
   const install = await vscode.window.showWarningMessage(
     `Missing SF CLI plugins: ${pluginStatus.missing.join(", ")}`,
-    "Install Now",
+    "Copy Command",
+    "Open Terminal",
     "Later"
   );
 
-  if (install === "Install Now") {
-    try {
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: "Installing SF CLI plugins...",
-          cancellable: false,
-        },
-        async (progress) => {
-          for (const plugin of pluginStatus.missing) {
-            progress.report({ message: `Installing ${plugin}...` });
-            await shell.execCommand(`sf plugins install ${plugin}`);
-          }
-        }
-      );
-      ui.showInfo(
-        `Successfully installed SF plugins: ${pluginStatus.missing.join(", ")}`
-      );
-      return true;
-    } catch (error) {
-      ui.showError(`Failed to install SF plugins: ${error.message}`);
-      return false;
-    }
+  const command = `sf plugins install ${pluginStatus.missing.join(" ")}`;
+
+  if (install === "Copy Command") {
+    await vscode.env.clipboard.writeText(command);
+    ui.showInfo("SF plugin install command copied to clipboard.");
+    return true;
+  }
+
+  if (install === "Open Terminal") {
+    const terminal = vscode.window.createTerminal("SF Preflight Plugins");
+    terminal.show();
+    terminal.sendText(command, false);
+    return true;
   }
 
   return false;

@@ -5,12 +5,12 @@ import {
   EXTENSION_NAME,
   MIN_VERSIONS,
   EXTERNAL_URLS,
-  STATE_KEYS,
 } from "../lib/constants.js";
 import * as shell from "../lib/shell.js";
 import * as ui from "../lib/ui.js";
 import * as packagesService from "./packages.js";
 import * as sfPluginsService from "./sf-plugins.js";
+import * as remediationService from "./remediation.js";
 
 /**
  * Environment checking service
@@ -27,11 +27,14 @@ import * as sfPluginsService from "./sf-plugins.js";
  */
 export async function checkJava() {
   try {
-    const { stdout } = await shell.execCommandFull("java -version 2>&1");
-    const versionMatch = stdout.match(/version "(.+?)"/);
+    const { stdout, stderr } = await shell.execCommandArgs("java", [
+      "-version",
+    ]);
+    const output = [stdout, stderr].filter(Boolean).join("\n");
+    const versionMatch = output.match(/version "(.+?)"/);
     if (versionMatch) {
       const version = versionMatch[1];
-      const majorVersion = parseInt(version.split(".")[0]);
+      const majorVersion = parseJavaMajorVersion(version);
       return {
         installed: true,
         version,
@@ -51,14 +54,20 @@ export async function checkJava() {
  * @returns {Promise<string | null>}
  */
 async function getJavaPath() {
-  try {
-    const isWindows = process.platform === "win32";
-    const command = isWindows ? "where java" : "which java";
-    const stdout = await shell.execCommand(command);
-    return stdout.split("\n")[0];
-  } catch {
-    return null;
+  return shell.whichCommand("java");
+}
+
+/**
+ * Parse Java major versions including legacy 1.8 format.
+ * @param {string} version
+ * @returns {number}
+ */
+export function parseJavaMajorVersion(version) {
+  const parts = version.split(".");
+  if (parts[0] === "1" && parts[1]) {
+    return parseInt(parts[1], 10);
   }
+  return parseInt(parts[0], 10);
 }
 
 /**
@@ -72,10 +81,15 @@ export async function findJavaInstallations() {
   try {
     if (platform === "darwin") {
       // macOS - check common locations
-      const { stdout } = await shell.execCommandFull(
-        "/usr/libexec/java_home -V 2>&1 || true"
-      );
-      const matches = stdout.matchAll(/^\s+(.+?)\s*$/gm);
+      const { stdout, stderr } = await shell.execCommandArgs(
+        "/usr/libexec/java_home",
+        ["-V"]
+      ).catch((error) => ({
+        stdout: "",
+        stderr: error.message,
+      }));
+      const output = [stdout, stderr].filter(Boolean).join("\n");
+      const matches = output.matchAll(/^\s+(.+?)\s*$/gm);
       for (const match of matches) {
         if (match[1].includes("Java") || match[1].includes("jdk")) {
           installations.push(match[1].trim());
@@ -83,7 +97,10 @@ export async function findJavaInstallations() {
       }
 
       try {
-        const javaHome = await shell.execCommand("/usr/libexec/java_home");
+        const { stdout: javaHome } = await shell.execCommandArgs(
+          "/usr/libexec/java_home",
+          []
+        );
         if (javaHome) {
           installations.push(javaHome);
         }
@@ -237,21 +254,50 @@ async function showPathUpdateInstructions(javaPath) {
  */
 export async function checkSalesforceCLI() {
   try {
-    const stdout = await shell.execCommand("sf --version");
-    const versionMatch = stdout.match(/@salesforce\/cli\/(\d+\.\d+\.\d+)/);
+    const { stdout } = await shell.execCommandArgs("sf", ["--version"]);
+    const versionMatch = stdout.match(
+      /(?:@salesforce\/cli\/|sf\/)(\d+\.\d+\.\d+)/
+    );
+    const cliPath = await shell.whichCommand("sf");
 
     if (versionMatch) {
       return {
         installed: true,
         version: versionMatch[1],
         output: stdout,
+        path: cliPath,
+        installMethod: inferSalesforceCliInstallMethod(cliPath),
       };
     }
 
-    return { installed: true, version: "unknown", output: stdout };
+    return {
+      installed: true,
+      version: "unknown",
+      output: stdout,
+      path: cliPath,
+      installMethod: inferSalesforceCliInstallMethod(cliPath),
+    };
   } catch (error) {
     return { installed: false, error: error.message };
   }
+}
+
+function inferSalesforceCliInstallMethod(cliPath) {
+  if (!cliPath) {
+    return "unknown";
+  }
+
+  const normalized = cliPath.toLowerCase();
+  if (normalized.includes("homebrew") || normalized.includes("/opt/homebrew")) {
+    return "homebrew";
+  }
+  if (normalized.includes("npm") || normalized.includes("node")) {
+    return "npm";
+  }
+  if (process.platform === "win32" && normalized.includes("program files")) {
+    return "installer";
+  }
+  return "unknown";
 }
 
 /**
@@ -263,15 +309,19 @@ export async function promptSalesforceCLIUpdate(cliCheck) {
   if (!cliCheck.installed) {
     const install = await vscode.window.showWarningMessage(
       `${EXTENSION_NAME}: Salesforce CLI (sf) is not installed.`,
-      "Install via npm",
+      "Copy npm Command",
+      "Open npm Command",
       "Download Installer",
       "Remind Me Later"
     );
 
-    if (install === "Install via npm") {
+    if (install === "Copy npm Command") {
+      await vscode.env.clipboard.writeText("npm install -g @salesforce/cli");
+      ui.showInfo("Salesforce CLI install command copied to clipboard.");
+    } else if (install === "Open npm Command") {
       const terminal = vscode.window.createTerminal("SF CLI Installation");
       terminal.show();
-      terminal.sendText("npm install -g @salesforce/cli");
+      terminal.sendText("npm install -g @salesforce/cli", false);
     } else if (install === "Download Installer") {
       vscode.env.openExternal(vscode.Uri.parse(EXTERNAL_URLS.SALESFORCE_CLI));
     }
@@ -279,21 +329,26 @@ export async function promptSalesforceCLIUpdate(cliCheck) {
   }
 
   const update = await vscode.window.showInformationMessage(
-    `${EXTENSION_NAME}: Salesforce CLI v${cliCheck.version} is installed. Check for updates?`,
-    "Update Now",
+    `${EXTENSION_NAME}: Salesforce CLI v${cliCheck.version} is installed.`,
+    "Copy Update Command",
+    "Open Update Command",
     "Check Version",
     "Later"
   );
 
-  if (update === "Update Now") {
+  if (update === "Copy Update Command") {
+    await vscode.env.clipboard.writeText("npm update -g @salesforce/cli");
+    ui.showInfo("Salesforce CLI update command copied to clipboard.");
+    return true;
+  } else if (update === "Open Update Command") {
     const terminal = vscode.window.createTerminal("SF CLI Update");
     terminal.show();
-    terminal.sendText("npm update -g @salesforce/cli");
+    terminal.sendText("npm update -g @salesforce/cli", false);
     return true;
   } else if (update === "Check Version") {
     const terminal = vscode.window.createTerminal("SF CLI Version");
     terminal.show();
-    terminal.sendText("sf version --verbose");
+    terminal.sendText("sf version --verbose", false);
     return true;
   }
 
@@ -310,7 +365,7 @@ export async function promptSalesforceCLIUpdate(cliCheck) {
  */
 export async function checkNodeJS() {
   try {
-    const stdout = await shell.execCommand("node --version");
+    const { stdout } = await shell.execCommandArgs("node", ["--version"]);
     const version = stdout.replace("v", "");
     const majorVersion = parseInt(version.split(".")[0]);
 
@@ -404,6 +459,8 @@ export async function getSalesforceProjectInfo() {
       const projectData = JSON.parse(content);
       return {
         path: sfdxProjectPath,
+        workspacePath: folder.uri.fsPath,
+        workspaceName: folder.name,
         name: projectData.name || "Unnamed Project",
         namespace: projectData.namespace || "",
         sourceApiVersion: projectData.sourceApiVersion || "unknown",
@@ -437,36 +494,44 @@ export async function runHealthCheck(silent = false) {
     projectInfo: null,
   };
 
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "Checking development environment...",
-      cancellable: false,
-    },
-    async (progress) => {
-      progress.report({ message: "Checking Node.js..." });
-      results.node = await checkNodeJS();
+  const runChecks = async (progress = null) => {
+    progress?.report({ message: "Checking Node.js..." });
+    results.node = await checkNodeJS();
 
-      progress.report({ message: "Checking Java..." });
-      results.java = await checkJava();
+    progress?.report({ message: "Checking Java..." });
+    results.java = await checkJava();
 
-      progress.report({ message: "Checking Salesforce CLI..." });
-      results.salesforceCLI = await checkSalesforceCLI();
+    progress?.report({ message: "Checking Salesforce CLI..." });
+    results.salesforceCLI = await checkSalesforceCLI();
 
-      progress.report({ message: "Checking npm packages..." });
-      results.packages = await packagesService.checkPackages();
+    progress?.report({ message: "Checking project type..." });
+    results.isSFDXProject = await isSalesforceDXProject();
 
-      progress.report({ message: "Checking SF CLI plugins..." });
-      results.sfPlugins = await sfPluginsService.checkPlugins();
-
-      progress.report({ message: "Checking project type..." });
-      results.isSFDXProject = await isSalesforceDXProject();
-
-      if (results.isSFDXProject) {
-        results.projectInfo = await getSalesforceProjectInfo();
-      }
+    if (results.isSFDXProject) {
+      results.projectInfo = await getSalesforceProjectInfo();
     }
-  );
+
+    const workspacePath = results.projectInfo?.workspacePath;
+
+    progress?.report({ message: "Checking project packages..." });
+    results.packages = await packagesService.checkPackages(workspacePath);
+
+    progress?.report({ message: "Checking SF CLI plugins..." });
+    results.sfPlugins = await sfPluginsService.checkPlugins();
+  };
+
+  if (silent) {
+    await runChecks();
+  } else {
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "Checking development environment...",
+        cancellable: false,
+      },
+      runChecks
+    );
+  }
 
   if (!silent) {
     await displayHealthCheckResults(results);
@@ -479,7 +544,7 @@ export async function runHealthCheck(silent = false) {
  * Display health check results
  * @param {Object} results
  */
-async function displayHealthCheckResults(results) {
+export async function displayHealthCheckResults(results) {
   const issues = [];
   const warnings = [];
   const info = [];
@@ -556,8 +621,6 @@ async function displayHealthCheckResults(results) {
 
     if (action === "Fix Issues") {
       await fixEnvironmentIssues(results);
-      // Re-run health check to confirm fixes
-      await runHealthCheck(false);
     }
   } else {
     ui.showInfo(`Environment Check:\n${message}`);
@@ -568,26 +631,8 @@ async function displayHealthCheckResults(results) {
  * Guide user to fix environment issues
  * @param {Object} results
  */
-async function fixEnvironmentIssues(results) {
-  if (!results.node.installed || !results.node.valid) {
-    await promptNodeJSUpdate(results.node);
-  }
-
-  if (!results.java.installed || !results.java.valid) {
-    await promptJavaPathUpdate();
-  }
-
-  if (!results.salesforceCLI.installed) {
-    await promptSalesforceCLIUpdate(results.salesforceCLI);
-  }
-
-  if (results.packages && !results.packages.allInstalled) {
-    await packagesService.promptPackageInstall(results.packages);
-  }
-
-  if (results.sfPlugins && !results.sfPlugins.allInstalled) {
-    await sfPluginsService.promptPluginInstall(results.sfPlugins);
-  }
+export async function fixEnvironmentIssues(results) {
+  return remediationService.showRemediationMenu(results);
 }
 
 /**
@@ -639,21 +684,8 @@ export async function runStartupCheck(context) {
     // Issues found — clear cache so we re-check next startup
     await context.globalState.update(CACHE_KEY, undefined);
 
-    // Only show a notification for critical issues (node or sf CLI missing).
-    // Warnings are surfaced via the status bar icon color — no popup.
     if (hasIssues) {
-      const missing = [];
-      if (!results.node.installed) missing.push("Node.js");
-      if (!results.salesforceCLI.installed) missing.push("Salesforce CLI (sf)");
-
-      const action = await vscode.window.showWarningMessage(
-        `${EXTENSION_NAME}: Missing critical tools: ${missing.join(", ")}`,
-        "Fix Now",
-        "Dismiss"
-      );
-      if (action === "Fix Now") {
-        await fixEnvironmentIssues(results);
-      }
+      console.log(`${EXTENSION_NAME}: Startup check found critical issues.`);
     }
   }
 

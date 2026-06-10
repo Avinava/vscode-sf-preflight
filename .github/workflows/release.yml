@@ -26,13 +26,19 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Publish to VS Code Marketplace
-        run: npx @vscode/vsce publish --no-dependencies
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test
 
       - name: Package .vsix
         run: npx @vscode/vsce package --no-dependencies --out release/
+
+      - name: Publish to VS Code Marketplace
+        run: npx @vscode/vsce publish --packagePath release/*.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -29,18 +29,16 @@ export class GitIgnoreProvisioner extends Provisioner {
 
     let create = force;
     if (!create) {
-      try {
-        await vscode.workspace.fs.stat(gitIgnoreUri);
+      if (await this.fileExists(gitIgnoreUri)) {
         console.log("SF Preflight: .gitignore already exists. Skipping.");
         return [];
-      } catch {
-        create = true;
       }
+      create = true;
     }
 
     if (create) {
       const writeData = Buffer.from(STANDARD_GITIGNORE_CONTENT.trim(), "utf8");
-      await vscode.workspace.fs.writeFile(gitIgnoreUri, writeData);
+      await this.writeFileWithBackup(gitIgnoreUri, writeData, force);
       return [".gitignore"];
     }
     return [];

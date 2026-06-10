@@ -20,11 +20,7 @@ export class EditorConfigProvisioner extends Provisioner {
 
     let create = force;
     if (!create) {
-      try {
-        await vscode.workspace.fs.stat(uri);
-      } catch {
-        create = true;
-      }
+      create = !(await this.fileExists(uri));
     }
 
     if (create) {
@@ -35,7 +31,7 @@ export class EditorConfigProvisioner extends Provisioner {
       );
 
       const writeData = Buffer.from(template.trim(), "utf8");
-      await vscode.workspace.fs.writeFile(uri, writeData);
+      await this.writeFileWithBackup(uri, writeData, force);
       return [".editorconfig"];
     }
     return [];

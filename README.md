@@ -7,18 +7,18 @@
 ## Features
 
 - **🔍 Environment Health Check** - Comprehensive check of your Salesforce development environment
-- **⚙️ Automatic Provisioning** - Automatically sets up standard configuration files (Prettier, EditorConfig, VS Code settings)
+- **⚙️ Explicit Project Setup** - Creates recommended configuration files only when you run the setup command
 - **📝 Spell Checker** - Configures Code Spell Checker with Salesforce-specific dictionary
 - **⚡ Smart Caching** - Caches successful health checks for 24 hours to speed up startup
 - **☕ Java Check** - Verify Java installation and version (11+ required for Apex Language Server)
 - **📦 Node.js Check** - Verify Node.js installation and version (18+ recommended)
-- **☁️ Salesforce CLI Check** - Verify SF CLI installation and provide update options
+- **☁️ Salesforce CLI Check** - Verify SF CLI installation and provide update guidance
 - **🔌 SF CLI Plugins Check** - Verify required plugins like sfdx-scanner and code-analyzer
 - **📊 Status Bar** - Quick visual indicator of environment health (green ✓, yellow ⚠, red ✗)
 
-## Automatic Provisioning
+## Recommended Setup
 
-When you open a Salesforce DX project, SF Preflight optionally checks for and creates ensuring standard configuration files:
+SF Preflight can create recommended Salesforce project configuration files:
 
 - **.prettierrc** (Optimized for Apex/LWC)
 - **.prettierignore**
@@ -28,6 +28,7 @@ When you open a Salesforce DX project, SF Preflight optionally checks for and cr
 - **cspell.json** (Salesforce dictionary configuration)
 
 *This behavior can be disabled or customized in Settings.*
+By default, setup is explicit and does not create workspace files on project open. Run `SF Preflight: Apply Recommended Setup` when you want SF Preflight to create missing files. Existing files are respected during normal setup.
 
 ## Configuration Templates
 
@@ -40,13 +41,13 @@ You can override the standard templates used for provisioning by editing these s
 
 ## Re-provisioning
 
-If you need to update your configuration files to the latest standards (or if you messed them up and want to reset), you can force a re-provision:
+If you need to update your configuration files to the latest standards, you can force a re-provision:
 
 1.  Open Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`)
 2.  Run `SF Preflight: Force Re-provision Configuration`
 3.  Confirm the warning dialog.
 
-**Note:** This will overwrite your existing config files (`.prettierrc`, `.editorconfig`, etc.) with the extension's default templates.
+**Note:** This overwrites enabled config files (`.prettierrc`, `.editorconfig`, etc.) with the extension's templates, but creates timestamped backups first.
 
 ## Status Bar
 
@@ -61,8 +62,11 @@ The extension shows your environment status in the status bar:
 
 Clicking the status bar item opens a **Quick Menu** with options to:
 - Run System Health Check
+- Fix Environment Issues
+- Apply Recommended Setup
 - Force Re-provision Configuration
 - Show Project Info
+- Show Logs
 
 ## Commands
 
@@ -75,14 +79,17 @@ All commands are available via the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+
 | `SF Preflight: Check Salesforce CLI`       | Check and update Salesforce CLI   |
 | `SF Preflight: Check Node.js Installation` | Check Node.js version             |
 | `SF Preflight: Show Project Info`          | Display SFDX project details      |
-| `SF Preflight: Force Re-provision Configuration` | **Reset/Update** config files (Overwrite) |
+| `SF Preflight: Fix Environment Issues` | Show copyable fix commands and docs |
+| `SF Preflight: Apply Recommended Setup` | Create missing recommended config files |
+| `SF Preflight: Force Re-provision Configuration` | **Reset/Update** config files with backups |
+| `SF Preflight: Show Logs` | Open the SF Preflight output channel |
 
 ## Settings
 
 | Setting | Default | Description |
 | :--- | :--- | :--- |
 | `sfPreflight.runHealthCheckOnStartup` | `true` | Run environment health check on startup |
-| `sfPreflight.provisioning.runOnStartup` | `true` | Enable automatic provisioning system |
+| `sfPreflight.provisioning.runOnStartup` | `false` | Automatically run provisioning on startup. Disabled by default to avoid unexpected workspace changes |
 | `sfPreflight.provisioning.spellChecker` | `true` | Auto-configure Spell Checker |
 | `sfPreflight.provisioning.prettier` | `true` | Auto-create Prettier config |
 | `sfPreflight.provisioning.editorConfig` | `true` | Auto-create EditorConfig |
