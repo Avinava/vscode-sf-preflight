@@ -6,20 +6,75 @@ const execFileAsync = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
-function getCommandEnv() {
-  const pathKey = Object.keys(process.env).find(
+function getPathDelimiter(platform) {
+  return platform === "win32" ? ";" : ":";
+}
+
+function uniquePathEntries(entries, platform) {
+  const seen = new Set();
+
+  return entries.filter((entry) => {
+    if (!entry) {
+      return false;
+    }
+
+    const normalized = platform === "win32" ? entry.toLowerCase() : entry;
+    if (seen.has(normalized)) {
+      return false;
+    }
+
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function getPosixVersionManagerPaths(env) {
+  const home = env.HOME;
+  const asdfDataDir = env.ASDF_DATA_DIR || (home ? `${home}/.asdf` : "");
+
+  return [
+    asdfDataDir && `${asdfDataDir}/shims`,
+    home && `${home}/.local/share/mise/shims`,
+    home && `${home}/.mise/shims`,
+    home && `${home}/.volta/bin`,
+  ];
+}
+
+function getPosixFallbackPaths(platform) {
+  const commonPaths = ["/usr/local/bin", "/usr/bin", "/bin"];
+
+  return platform === "darwin"
+    ? ["/opt/homebrew/bin", ...commonPaths]
+    : commonPaths;
+}
+
+export function buildCommandEnv(env = process.env, platform = process.platform) {
+  const pathKey = Object.keys(env).find(
     (key) => key.toLowerCase() === "path"
   ) || "PATH";
-  const currentPath = process.env[pathKey] || "";
+  const currentPath = env[pathKey] || "";
+  const delimiter = getPathDelimiter(platform);
   const extraPaths =
-    process.platform === "win32"
+    platform === "win32"
       ? []
-      : ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
+      : [
+          ...getPosixVersionManagerPaths(env),
+          ...currentPath.split(delimiter),
+          ...getPosixFallbackPaths(platform),
+        ];
+  const pathEntries =
+    platform === "win32"
+      ? currentPath.split(delimiter)
+      : uniquePathEntries(extraPaths, platform);
 
   return {
-    ...process.env,
-    [pathKey]: [...extraPaths, currentPath].filter(Boolean).join(":"),
+    ...env,
+    [pathKey]: pathEntries.filter(Boolean).join(delimiter),
   };
+}
+
+function getCommandEnv() {
+  return buildCommandEnv();
 }
 
 function normalizeExecError(error) {
