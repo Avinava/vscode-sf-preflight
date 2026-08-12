@@ -99,7 +99,7 @@ export async function managePackages(context) {
       return;
     } else {
       if (!context.globalState.get(STATE_KEYS.PACKAGES_CHECKED)) {
-        ui.showInfo("Required packages are already installed.");
+        ui.showInfoVerbose("Recommended packages are already installed.");
         context.globalState.update(STATE_KEYS.PACKAGES_CHECKED, true);
       }
     }

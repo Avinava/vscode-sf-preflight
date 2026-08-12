@@ -13,6 +13,9 @@ vi.mock("vscode", () => ({
     },
     openExternal: vi.fn(),
   },
+  commands: {
+    executeCommand: vi.fn(),
+  },
   window: {
     createTerminal: vi.fn(() => ({
       show: vi.fn(),
@@ -20,6 +23,14 @@ vi.mock("vscode", () => ({
     })),
     showInformationMessage: vi.fn(),
     showQuickPick: vi.fn(),
+  },
+  workspace: {
+    getConfiguration: vi.fn(() => ({
+      get: vi.fn((_k, d) => d),
+    })),
+  },
+  extensions: {
+    getExtension: vi.fn(),
   },
 }));
 
@@ -45,7 +56,7 @@ describe("buildRemediationItems", () => {
 
     const items = await buildRemediationItems({
       node: { installed: true, valid: true },
-      java: { installed: true, valid: true },
+      java: { installed: true, valid: true, recommended: true },
       salesforceCLI: { installed: true },
       packages: {
         allInstalled: false,
@@ -63,7 +74,7 @@ describe("buildRemediationItems", () => {
   it("builds Salesforce CLI plugin commands without executing them", async () => {
     const items = await buildRemediationItems({
       node: { installed: true, valid: true },
-      java: { installed: true, valid: true },
+      java: { installed: true, valid: true, recommended: true },
       salesforceCLI: { installed: true },
       packages: { allInstalled: true },
       sfPlugins: {
@@ -78,5 +89,38 @@ describe("buildRemediationItems", () => {
         command: "sf plugins install code-analyzer",
       })
     );
+  });
+
+  it("offers method-aware CLI install for homebrew", async () => {
+    const items = await buildRemediationItems({
+      node: { installed: true, valid: true },
+      java: { installed: true, valid: true, recommended: true },
+      salesforceCLI: { installed: false, installMethod: "homebrew" },
+      packages: { allInstalled: true },
+      sfPlugins: { allInstalled: true },
+    });
+
+    expect(
+      items.some((item) => item.command === "brew install sf")
+    ).toBe(true);
+  });
+
+  it("offers set-java-home and extension pack actions", async () => {
+    const items = await buildRemediationItems({
+      node: { installed: true, valid: true },
+      java: { installed: false, valid: false, recommended: false },
+      salesforceCLI: { installed: true },
+      packages: { allInstalled: true },
+      sfPlugins: { allInstalled: true },
+      extensions: {
+        pack: false,
+        core: false,
+        apex: true,
+        needsJavaApex: true,
+      },
+    });
+
+    expect(items.some((i) => i.action === "set-java-home")).toBe(true);
+    expect(items.some((i) => i.action === "open-extension-pack")).toBe(true);
   });
 });

@@ -12,7 +12,10 @@ import * as logger from "../lib/logger.js";
  * @param {vscode.ExtensionContext} context
  */
 export async function checkEnvironment(context) {
-  const results = await environmentService.runHealthCheck(false);
+  const results = await environmentService.runHealthCheck({
+    silent: false,
+    context,
+  });
   if (context) {
     await environmentService.updateHealthCheckCache(context, results);
   }
@@ -56,18 +59,21 @@ export async function checkJava() {
       );
     }
   } else {
-    ui.showInfo(
-      `Java ${javaCheck.version} is properly configured ✅\nPath: ${javaCheck.path || "N/A"}`
-    );
+    const msg = `Java ${javaCheck.version} is configured · Path: ${javaCheck.path || "N/A"}`;
+    logger.info(msg);
+    ui.showInfoVerbose(msg);
   }
 }
 
 /**
- * Check and update Salesforce CLI
+ * Check Salesforce CLI. Healthy installs stay quiet (optional update via verbose or explicit choice).
  */
 export async function checkSalesforceCLI() {
   const cliCheck = await environmentService.checkSalesforceCLI();
-  await environmentService.promptSalesforceCLIUpdate(cliCheck);
+  // Only push update actions when missing, or when user has verbose notifications on
+  await environmentService.promptSalesforceCLIUpdate(cliCheck, {
+    offerUpdate: ui.isVerboseNotifications(),
+  });
 }
 
 /**
@@ -81,7 +87,9 @@ export async function checkNodeJS() {
   } else if (!nodeCheck.valid) {
     await environmentService.promptNodeJSUpdate(nodeCheck);
   } else {
-    ui.showInfo(`Node.js v${nodeCheck.version} is properly configured ✅`);
+    const msg = `Node.js v${nodeCheck.version} is configured`;
+    logger.info(msg);
+    ui.showInfoVerbose(msg);
   }
 }
 

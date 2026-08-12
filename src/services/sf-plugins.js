@@ -68,8 +68,8 @@ export async function install(context) {
       await promptPluginInstall(pluginStatus);
     } else {
       if (!context.globalState.get(STATE_KEYS.SF_PLUGINS_CHECKED)) {
-        ui.showInfo(
-          "All required SF plugins are already installed. SF setup is complete."
+        ui.showInfoVerbose(
+          "Recommended SF plugins are already installed."
         );
         context.globalState.update(STATE_KEYS.SF_PLUGINS_CHECKED, true);
       }

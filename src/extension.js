@@ -2,6 +2,12 @@ import * as vscode from "vscode";
 import { EXTENSION_NAME, EXTENSION_ID } from "./lib/constants.js";
 import * as environmentService from "./services/environment.js";
 import * as environmentCommands from "./features/environment-commands.js";
+import {
+  buildHealthReport,
+  getStatusLevel,
+  formatReportSummaryLine,
+} from "./services/health-report.js";
+import { openSetupReport } from "./services/setup-report.js";
 import { ProvisioningManager } from "./provisioning/ProvisioningManager.js";
 import { SpellCheckerProvisioner } from "./provisioning/spellChecker/SpellCheckerProvisioner.js";
 import { GitIgnoreProvisioner } from "./provisioning/gitIgnore/GitIgnoreProvisioner.js";
@@ -99,13 +105,15 @@ class Extension {
       return;
     }
 
+    // Right side, low priority — less competition with primary language tooling
     this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Left,
-      100
+      vscode.StatusBarAlignment.Right,
+      50
     );
-    this.statusBarItem.command = `${EXTENSION_ID}.openMenu`;
-    this.statusBarItem.text = "$(sync~spin) SF Preflight";
-    this.statusBarItem.tooltip = "Checking environment... (Click for menu)";
+    this.statusBarItem.name = "SF Preflight";
+    this.statusBarItem.command = `${EXTENSION_ID}.openReport`;
+    this.statusBarItem.text = "$(sync~spin) SF";
+    this.statusBarItem.tooltip = "Checking environment… (click for setup report)";
     this.statusBarItem.show();
     this.context.subscriptions.push(this.statusBarItem);
   }
@@ -138,25 +146,25 @@ class Extension {
       return;
     }
 
-    const hasIssues =
-      !results.node.installed ||
-      !results.salesforceCLI.installed ||
-      (results.packages && !results.packages.allInstalled) ||
-      (results.sfPlugins && !results.sfPlugins.allInstalled);
+    const report = buildHealthReport(results);
+    const level = getStatusLevel(report);
+    const summary = formatReportSummaryLine(report);
+    const cacheNote = results.cached ? " · cached" : "";
+    const topIssue = report.checks.find((c) => !c.ok);
+    const detail = topIssue
+      ? `\n${topIssue.title}: ${topIssue.message}`
+      : "";
 
-    const hasWarnings =
-      !results.node.valid || !results.java.installed || !results.java.valid;
-
-    if (hasIssues) {
-      this.statusBarItem.text = "$(error) SF Preflight";
-      this.statusBarItem.tooltip = "Environment issues detected - Click for actions";
+    if (level === "error") {
+      this.statusBarItem.text = "$(error) SF";
+      this.statusBarItem.tooltip = `${summary}${detail}\nClick for actions`;
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.errorBackground"
       );
       this.statusBarItem.color = undefined;
-    } else if (hasWarnings) {
-      this.statusBarItem.text = "$(warning) SF Preflight";
-      this.statusBarItem.tooltip = "Environment warnings - Click for actions";
+    } else if (level === "warning") {
+      this.statusBarItem.text = "$(warning) SF";
+      this.statusBarItem.tooltip = `${summary}${detail}\nClick for actions`;
       this.statusBarItem.backgroundColor = new vscode.ThemeColor(
         "statusBarItem.warningBackground"
       );
@@ -164,14 +172,12 @@ class Extension {
     } else {
       this.statusBarItem.backgroundColor = undefined;
       this.statusBarItem.color = new vscode.ThemeColor("testing.iconPassed");
-      
-      if (results.cached) {
-        this.statusBarItem.tooltip = "Environment Ready - Click for actions";
-        this.statusBarItem.text = "$(pass-filled) SF Preflight";
-      } else {
-        this.statusBarItem.text = "$(pass-filled) SF Preflight";
-        this.statusBarItem.tooltip = "Environment OK - Click for actions";
-      }
+      this.statusBarItem.text = "$(pass-filled) SF";
+      const rec =
+        report.summary.infos > 0
+          ? `\n${report.summary.infos} optional recommendation(s)`
+          : "";
+      this.statusBarItem.tooltip = `${summary}${cacheNote}${rec}\nClick for actions`;
     }
   }
 
@@ -200,34 +206,36 @@ class Extension {
    * Watch for workspace folder changes
    */
   watchWorkspaceChanges() {
-    vscode.workspace.onDidChangeWorkspaceFolders(async () => {
-      const isSfdx = await environmentService.isSalesforceDXProject();
-      if (isSfdx !== this.isSfdxProject) {
-        await this.handleSfdxProjectChange(isSfdx);
-      }
-    });
+    this.context.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+        const isSfdx = await environmentService.isSalesforceDXProject();
+        if (isSfdx !== this.isSfdxProject) {
+          await this.handleSfdxProjectChange(isSfdx);
+        }
+      })
+    );
   }
 
   /**
    * Watch for configuration changes
    */
   watchConfigChanges() {
-    vscode.workspace.onDidChangeConfiguration(async (e) => {
-      if (e.affectsConfiguration("sfPreflight.showStatusBar")) {
-        const config = vscode.workspace.getConfiguration("sfPreflight");
-        if (config.get("showStatusBar")) {
-          if (!this.statusBarItem) {
-            this.createStatusBar();
-            await this.updateStatusBar();
-          }
-        } else {
-          if (this.statusBarItem) {
+    this.context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(async (e) => {
+        if (e.affectsConfiguration("sfPreflight.showStatusBar")) {
+          const config = vscode.workspace.getConfiguration("sfPreflight");
+          if (config.get("showStatusBar")) {
+            if (!this.statusBarItem) {
+              this.createStatusBar();
+              await this.updateStatusBar();
+            }
+          } else if (this.statusBarItem) {
             this.statusBarItem.dispose();
             this.statusBarItem = null;
           }
         }
-      }
-    });
+      })
+    );
   }
 
   /**
@@ -295,6 +303,10 @@ class Extension {
         callback: () => environmentCommands.showLogs(),
       },
       {
+        command: `${EXTENSION_ID}.openReport`,
+        callback: () => openSetupReport(this.context),
+      },
+      {
         command: `${EXTENSION_ID}.openMenu`,
         callback: () => this.openActionMenu(),
       },
@@ -313,24 +325,24 @@ class Extension {
   async openActionMenu() {
     const items = [
       {
-        label: "$(sync) Run System Health Check",
-        description: "Verify environment requirements",
+        label: "$(checklist) Open Setup Report",
+        description: "Issues grouped by severity with fix actions",
+        command: `${EXTENSION_ID}.openReport`,
+      },
+      {
+        label: "$(sync) Run Health Check",
+        description: "Re-check environment requirements",
         command: `${EXTENSION_ID}.checkEnvironment`,
       },
       {
         label: "$(wrench) Fix Environment Issues",
-        description: "Show copyable setup commands and docs",
+        description: "Copyable setup commands and docs",
         command: `${EXTENSION_ID}.fixEnvironment`,
       },
       {
-        label: "$(checklist) Apply Recommended Setup",
-        description: "Create missing project config files",
+        label: "$(file-add) Apply Recommended Setup",
+        description: "Preview and create missing project config files",
         command: `${EXTENSION_ID}.applyRecommendedSetup`,
-      },
-      {
-        label: "$(refresh) Force Re-provision Configuration",
-        description: "Regenerate config files (warning: overwrites)",
-        command: `${EXTENSION_ID}.provisionForce`,
       },
       {
         label: "$(info) Show Project Info",
@@ -339,13 +351,18 @@ class Extension {
       },
       {
         label: "$(output) Show Logs",
-        description: "Open SF Preflight output channel",
+        description: "Open SF Preflight Output channel",
         command: `${EXTENSION_ID}.showLogs`,
+      },
+      {
+        label: "$(refresh) Advanced: Force Re-provision…",
+        description: "Overwrite config files (creates backups)",
+        command: `${EXTENSION_ID}.provisionForce`,
       },
     ];
 
     const selection = await vscode.window.showQuickPick(items, {
-      placeHolder: "Select an action for SF Preflight",
+      placeHolder: "SF Preflight",
     });
 
     if (selection) {

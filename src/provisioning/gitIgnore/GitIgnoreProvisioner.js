@@ -14,33 +14,29 @@ export class GitIgnoreProvisioner extends Provisioner {
     return "provisioning.gitIgnore"; // Maps to sfPreflight.provisioning.gitIgnore
   }
 
-  async execute(force = false) {
+  getManagedPaths() {
+    return [".gitignore"];
+  }
+
+  async execute(force = false, options = {}) {
+    if (!this.shouldWritePath(".gitignore", options)) {
+      return [];
+    }
+
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
-      // If no workspace folders are open, or if the array is empty, we can't determine a root.
-      // This scenario should ideally be handled by the calling context or be impossible
-      // given how VS Code extensions typically operate within a workspace.
-      console.log("SF Preflight: No workspace folders found. Skipping .gitignore provisioning.");
       return [];
     }
 
     const rootUri = workspaceFolders[0].uri;
     const gitIgnoreUri = vscode.Uri.joinPath(rootUri, ".gitignore");
 
-    let create = force;
-    if (!create) {
-      if (await this.fileExists(gitIgnoreUri)) {
-        console.log("SF Preflight: .gitignore already exists. Skipping.");
-        return [];
-      }
-      create = true;
+    if (!force && (await this.fileExists(gitIgnoreUri))) {
+      return [];
     }
 
-    if (create) {
-      const writeData = Buffer.from(STANDARD_GITIGNORE_CONTENT.trim(), "utf8");
-      await this.writeFileWithBackup(gitIgnoreUri, writeData, force);
-      return [".gitignore"];
-    }
-    return [];
+    const writeData = Buffer.from(STANDARD_GITIGNORE_CONTENT.trim(), "utf8");
+    await this.writeFileWithBackup(gitIgnoreUri, writeData, force);
+    return [".gitignore"];
   }
 }

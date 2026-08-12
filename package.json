@@ -2,7 +2,7 @@
   "name": "sf-preflight",
   "displayName": "SF Preflight",
   "description": "Environment health checks and setup verification for Salesforce development",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "publisher": "avidev9",
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "package": "yarn build"
   },
   "engines": {
-    "vscode": "^1.61.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -37,10 +37,10 @@
   "icon": "assets/icon.png",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.2.1",
     "eslint": "^9.13.0",
-    "vitest": "^4.1.8",
-    "vscode": "^1.1.37"
+    "vitest": "^4.1.8"
   },
   "contributes": {
     "configuration": {
@@ -50,12 +50,34 @@
         "sfPreflight.runHealthCheckOnStartup": {
           "type": "boolean",
           "default": true,
-          "description": "Run environment health check when VS Code starts"
+          "description": "Run environment health check when VS Code starts (silent; notifies only for blockers)"
         },
         "sfPreflight.showStatusBar": {
           "type": "boolean",
           "default": true,
           "description": "Show environment status in the status bar"
+        },
+        "sfPreflight.verboseNotifications": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show success and optional-recommendation toasts (off by default; full details always go to the SF Preflight Output channel)"
+        },
+        "sfPreflight.checks.extensionPack": {
+          "type": "string",
+          "enum": ["warning", "blocker", "off"],
+          "default": "warning",
+          "description": "How strictly to treat a missing Salesforce Extension Pack (salesforce.salesforcedx-vscode). Use off for CLI-only workflows."
+        },
+        "sfPreflight.checks.codeAnalyzer": {
+          "type": "string",
+          "enum": ["recommended", "off"],
+          "default": "recommended",
+          "description": "Whether to recommend the code-analyzer SF CLI plugin"
+        },
+        "sfPreflight.checks.orgAuth": {
+          "type": "boolean",
+          "default": true,
+          "description": "Best-effort check for authenticated orgs and a default target org (never blocks startup)"
         },
         "sfPreflight.provisioning.runOnStartup": {
           "type": "boolean",
@@ -149,6 +171,12 @@
       }
     },
     "commands": [
+      {
+        "command": "sf-preflight.openReport",
+        "title": "SF Preflight: Open Setup Report",
+        "shortTitle": "Setup Report",
+        "icon": "$(checklist)"
+      },
       {
         "command": "sf-preflight.checkEnvironment",
         "title": "SF Preflight: Check Environment Health",

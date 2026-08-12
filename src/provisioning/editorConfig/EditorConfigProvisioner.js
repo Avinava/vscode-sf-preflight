@@ -11,29 +11,30 @@ export class EditorConfigProvisioner extends Provisioner {
     return "provisioning.editorConfig";
   }
 
-  async execute(force = false) {
+  getManagedPaths() {
+    return [".editorconfig"];
+  }
+
+  async execute(force = false, options = {}) {
+    if (!this.shouldWritePath(".editorconfig", options)) {
+      return [];
+    }
+
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) return [];
     const rootUri = workspaceFolders[0].uri;
 
     const uri = vscode.Uri.joinPath(rootUri, ".editorconfig");
-
-    let create = force;
-    if (!create) {
-      create = !(await this.fileExists(uri));
+    if (!force && (await this.fileExists(uri))) {
+      return [];
     }
 
-    if (create) {
-      // Create or Overwrite
-      const template = this.getConfig(
-        "provisioning.templates.editorConfig",
-        STANDARD_EDITOR_CONFIG
-      );
-
-      const writeData = Buffer.from(template.trim(), "utf8");
-      await this.writeFileWithBackup(uri, writeData, force);
-      return [".editorconfig"];
-    }
-    return [];
+    const template = this.getConfig(
+      "provisioning.templates.editorConfig",
+      STANDARD_EDITOR_CONFIG
+    );
+    const writeData = Buffer.from(template.trim(), "utf8");
+    await this.writeFileWithBackup(uri, writeData, force);
+    return [".editorconfig"];
   }
 }

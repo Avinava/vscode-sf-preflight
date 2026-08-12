@@ -58,12 +58,33 @@ export class Provisioner {
   }
 
   /**
+   * Relative paths this provisioner may write.
+   * @returns {string[]}
+   */
+  getManagedPaths() {
+    return [];
+  }
+
+  /**
    * Execute the provisioning logic
    * @param {boolean} force - If true, overwrite existing files
+   * @param {{onlyFiles?: Set<string>|null}} [_options]
    * @returns {Promise<string[]>} - List of created/updated files
    */
-  async execute(_force = false) {
+  async execute(_force = false, _options = {}) {
     throw new Error("Method 'execute()' must be implemented.");
+  }
+
+  /**
+   * @param {string} relativePath
+   * @param {{onlyFiles?: Set<string>|null}} options
+   * @returns {boolean}
+   */
+  shouldWritePath(relativePath, options = {}) {
+    if (!options.onlyFiles) {
+      return true;
+    }
+    return options.onlyFiles.has(relativePath);
   }
 
   /**
